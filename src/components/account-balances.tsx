@@ -45,8 +45,11 @@ export function AccountBalances({ isEditable = true, initialAccounts = [] }: { i
   const [accounts, setAccounts] = useState(initialAccounts);
 
    useEffect(() => {
-    setAccounts(initialAccounts);
-  }, [initialAccounts]);
+    // A simple JSON string comparison to check if the data has actually changed.
+    if (JSON.stringify(accounts) !== JSON.stringify(initialAccounts)) {
+      setAccounts(initialAccounts);
+    }
+  }, [initialAccounts, accounts]);
 
 
   const handleInputChange = (id: string, field: string, value: string) => {
