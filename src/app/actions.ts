@@ -82,10 +82,13 @@ export async function addTransactionAction(values: unknown) {
       monthName
     );
 
-    const transactionAmount =
-      type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+    const transactionAmount = Math.abs(amount);
 
-    await addTransaction(process.env.NOTION_TRANSACTIONS_DB!, {
+    const databaseId = type === 'income' 
+      ? process.env.NOTION_INCOME_DB!
+      : process.env.NOTION_TRANSACTIONS_DB!;
+
+    await addTransaction(databaseId, {
       Source: { title: [{ text: { content: description } }] },
       Amount: { number: transactionAmount },
       Tags: { select: { name: category || 'Other' } },

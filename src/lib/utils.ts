@@ -31,19 +31,19 @@ export const transformTransactionData = (
     const props = (page as any).properties;
     const amount = getProperty(props.Amount) || 0;
     
-    // In Notion, all amounts might be stored as positive values.
-    // We determine if it's income or expense based on other properties if available,
-    // or assume expense for now if not specified.
-    // Let's assume positive is income, negative is expense from how it's entered.
-    const type = amount >= 0 ? 'Income' : 'Expense';
+    // The type is now passed with the page object from getAllTransactions
+    const type = (page as any).type;
+    
+    // For display purposes, expenses are shown as negative, income as positive
+    const displayAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 
     return {
       id: page.id,
       date: getProperty(props.Date) || new Date().toISOString().split('T')[0],
-      description: getProperty(props.Source) || 'N/A', // Changed from Description to Source
-      amount: amount,
-      type: type,
-      category: getProperty(props.Tags) || 'Other', // Changed from Category to Tags
+      description: getProperty(props.Source) || 'N/A',
+      amount: displayAmount,
+      type: type, // 'income' or 'expense'
+      category: getProperty(props.Tags) || 'Other',
     };
   });
 };

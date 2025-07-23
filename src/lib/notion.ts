@@ -12,16 +12,38 @@ const notion = new Client({
 export const getTransactions = async (databaseId: string) => {
   try {
     if (!databaseId) {
-      throw new Error('Database ID is undefined');
+      // Return empty array if DB ID is not set, to avoid crashing
+      return [];
     }
     const response = await notion.databases.query({
       database_id: databaseId,
     });
     return response.results;
   } catch (error) {
-    console.error('Error fetching transactions from Notion:', error);
+    console.error(`Error fetching transactions from Notion DB ${databaseId}:`, error);
     return [];
   }
+};
+
+export const getAllTransactions = async (expenseDbId: string, incomeDbId: string) => {
+  const [expenseTransactions, incomeTransactions] = await Promise.all([
+    getTransactions(expenseDbId),
+    getTransactions(incomeDbId)
+  ]);
+
+  const allTransactions = [
+    ...expenseTransactions.map(t => ({ ...t, type: 'expense' })),
+    ...incomeTransactions.map(t => ({ ...t, type: 'income' })),
+  ];
+  
+  // Sort by date, most recent first
+  allTransactions.sort((a, b) => {
+    const dateA = new Date((a as any).properties.Date.date.start);
+    const dateB = new Date((b as any).properties.Date.date.start);
+    return dateB.getTime() - dateA.getTime();
+  });
+
+  return allTransactions;
 };
 
 export const addTransaction = async (databaseId: string, properties: any) => {
