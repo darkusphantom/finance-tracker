@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardContent,
@@ -14,9 +16,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from './ui/badge';
+import { useState } from 'react';
+import { Button } from './ui/button';
+import { Trash2 } from 'lucide-react';
+import { Input } from './ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
-const transactions = [
+const initialTransactions = [
   {
+    id: '1',
     date: '2024-07-25',
     description: 'Salary',
     amount: 5000,
@@ -24,6 +38,7 @@ const transactions = [
     category: 'Income',
   },
   {
+    id: '2',
     date: '2024-07-24',
     description: 'Rent',
     amount: -1800,
@@ -31,6 +46,7 @@ const transactions = [
     category: 'Housing',
   },
   {
+    id: '3',
     date: '2024-07-23',
     description: 'Groceries',
     amount: -125.5,
@@ -38,6 +54,7 @@ const transactions = [
     category: 'Food & Drink',
   },
   {
+    id: '4',
     date: '2024-07-22',
     description: 'Freelance Project',
     amount: 320.5,
@@ -45,6 +62,7 @@ const transactions = [
     category: 'Income',
   },
   {
+    id: '5',
     date: '2024-07-21',
     description: 'Coffee with a friend',
     amount: -8.75,
@@ -52,6 +70,7 @@ const transactions = [
     category: 'Food & Drink',
   },
   {
+    id: '6',
     date: '2024-07-20',
     description: 'Utilities',
     amount: -150,
@@ -60,7 +79,28 @@ const transactions = [
   },
 ];
 
+const categories = ['Income', 'Housing', 'Food & Drink', 'Utilities', 'Transport', 'Entertainment'];
+
 export function TransactionsTable() {
+  const [transactions, setTransactions] = useState(initialTransactions);
+
+  const handleInputChange = (id: string, field: string, value: any) => {
+    const newTransactions = transactions.map((transaction) => {
+      if (transaction.id === id) {
+        if (field === 'amount') {
+          return { ...transaction, [field]: parseFloat(value) || 0 };
+        }
+        return { ...transaction, [field]: value };
+      }
+      return transaction;
+    });
+    setTransactions(newTransactions);
+  };
+
+  const deleteRow = (id: string) => {
+    setTransactions(transactions.filter((transaction) => transaction.id !== id));
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -76,34 +116,83 @@ export function TransactionsTable() {
               <TableHead>Date</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Category</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map((transaction, index) => (
-              <TableRow key={index}>
-                <TableCell className="font-medium">
-                  {new Date(transaction.date).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    timeZone: 'UTC'
-                  })}
-                </TableCell>
-                <TableCell>{transaction.description}</TableCell>
+            {transactions.map((transaction) => (
+              <TableRow key={transaction.id}>
                 <TableCell>
-                  <Badge variant="outline">{transaction.category}</Badge>
+                  <Input
+                    type="date"
+                    value={transaction.date}
+                    onChange={(e) =>
+                      handleInputChange(transaction.id, 'date', e.target.value)
+                    }
+                    className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                  />
                 </TableCell>
-                <TableCell
-                  className={`text-right font-mono ${
-                    transaction.amount >= 0 ? 'text-primary' : 'text-destructive'
-                  }`}
-                >
-                  {transaction.amount < 0 ? '-' : ''}$
-                  {Math.abs(transaction.amount).toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                <TableCell>
+                  <Input
+                    value={transaction.description}
+                    onChange={(e) =>
+                      handleInputChange(
+                        transaction.id,
+                        'description',
+                        e.target.value
+                      )
+                    }
+                    className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={transaction.category}
+                    onValueChange={(value) =>
+                      handleInputChange(transaction.id, 'category', value)
+                    }
+                  >
+                    <SelectTrigger className="w-[150px] border-none bg-transparent p-0 h-auto focus:ring-0">
+                       <Badge variant="outline">
+                        <SelectValue placeholder="Select category" />
+                       </Badge>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Input
+                    type="number"
+                    value={transaction.amount}
+                    onChange={(e) =>
+                      handleInputChange(
+                        transaction.id,
+                        'amount',
+                        e.target.value
+                      )
+                    }
+                    className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${
+                      transaction.amount >= 0
+                        ? 'text-primary'
+                        : 'text-destructive'
+                    }`}
+                  />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteRow(transaction.id)}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

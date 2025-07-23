@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardContent,
@@ -7,9 +9,14 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { useState } from 'react';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Trash2 } from 'lucide-react';
 
-const debts = [
+const initialDebts = [
   {
+    id: '1',
     name: 'Student Loan',
     type: 'Debt',
     total: 25000,
@@ -17,6 +24,7 @@ const debts = [
     status: 'Paying',
   },
   {
+    id: '2',
     name: 'Car Loan',
     type: 'Debt',
     total: 18000,
@@ -24,6 +32,7 @@ const debts = [
     status: 'Paid Off',
   },
   {
+    id: '3',
     name: 'Mike (Dinner)',
     type: 'Debtor',
     total: 45,
@@ -33,6 +42,25 @@ const debts = [
 ];
 
 export function Debts() {
+  const [debts, setDebts] = useState(initialDebts);
+
+  const handleInputChange = (id: string, field: string, value: any) => {
+    const newDebts = debts.map((debt) => {
+      if (debt.id === id) {
+        if (field === 'total' || field === 'paid') {
+          return { ...debt, [field]: parseFloat(value) || 0 };
+        }
+        return { ...debt, [field]: value };
+      }
+      return debt;
+    });
+    setDebts(newDebts);
+  };
+
+  const deleteRow = (id: string) => {
+    setDebts(debts.filter((debt) => debt.id !== id));
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -43,9 +71,15 @@ export function Debts() {
       </CardHeader>
       <CardContent className="space-y-6">
         {debts.map((debt) => (
-          <div key={debt.name}>
+          <div key={debt.id}>
             <div className="flex justify-between items-center mb-2">
-              <span className="font-medium">{debt.name}</span>
+              <Input
+                value={debt.name}
+                onChange={(e) =>
+                  handleInputChange(debt.id, 'name', e.target.value)
+                }
+                className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-auto"
+              />
               <Badge
                 variant={debt.type === 'Debt' ? 'destructive' : 'secondary'}
               >
@@ -53,17 +87,34 @@ export function Debts() {
               </Badge>
             </div>
             <div className="flex justify-between items-baseline text-sm mb-1">
-              <span className="text-muted-foreground">
-                {debt.status === 'Paid Off' ? 'Paid' : 'Paid'}: $
-                {debt.paid.toLocaleString()} of ${debt.total.toLocaleString()}
-              </span>
-              <span
-                className={`font-semibold ${
-                  debt.status === 'Paid Off' ? 'text-primary' : ''
-                }`}
+              <div className="text-muted-foreground flex items-center gap-1">
+                Paid: $
+                <Input
+                  type="number"
+                  value={debt.paid}
+                  onChange={(e) =>
+                    handleInputChange(debt.id, 'paid', e.target.value)
+                  }
+                  className="font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-20"
+                />
+                of $
+                <Input
+                  type="number"
+                  value={debt.total}
+                  onChange={(e) =>
+                    handleInputChange(debt.id, 'total', e.target.value)
+                  }
+                  className="font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-20"
+                />
+              </div>
+               <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteRow(debt.id)}
+                className="h-6 w-6"
               >
-                {debt.status}
-              </span>
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </Button>
             </div>
             <Progress value={(debt.paid / debt.total) * 100} />
           </div>
