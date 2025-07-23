@@ -35,9 +35,11 @@ const prompt = ai.definePrompt({
   name: 'categorizeTransactionPrompt',
   input: {schema: CategorizeTransactionInputSchema},
   output: {schema: CategorizeTransactionOutputSchema},
-  prompt: `You are a personal finance expert.  Based on the transaction description provided, suggest a category for the transaction.
+  prompt: `You are a personal finance expert. Based on the transaction description provided, suggest a category for the transaction.
 
 Description: {{{description}}}
+
+Choose one of the following categories: 'Income', 'Housing', 'Food & Drink', 'Utilities', 'Transport', 'Entertainment', 'Health', 'Personal Care', 'Shopping', 'Debt Payment', 'Other'.
 
 Category:`,
 });
