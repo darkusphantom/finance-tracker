@@ -4,8 +4,15 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { Debts } from '@/components/debts';
 import { MonthlyOverview } from '@/components/monthly-overview';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { getAccounts } from '@/lib/notion';
+import { transformAccountData } from '@/lib/utils';
 
-export default function Home() {
+export const revalidate = 0;
+
+export default async function Home() {
+  const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
+  const accounts = transformAccountData(rawAccounts);
+
   return (
     <DashboardLayout>
       <header className="flex justify-between items-center mb-6">
@@ -21,7 +28,7 @@ export default function Home() {
         <MonthlyOverview />
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2">
-            <AccountBalances isEditable={false} />
+            <AccountBalances isEditable={false} initialAccounts={accounts} />
           </div>
           <div className="md:col-span-1">
             <Debts isEditable={false}/>
