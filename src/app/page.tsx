@@ -1,3 +1,33 @@
+import { AccountBalances } from '@/components/account-balances';
+import { AddTransactionSheet } from '@/components/add-transaction-sheet';
+import { DashboardLayout } from '@/components/dashboard-layout';
+import { Debts } from '@/components/debts';
+import { MonthlyOverview } from '@/components/monthly-overview';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+
 export default function Home() {
-  return <></>;
+  return (
+    <DashboardLayout>
+      <header className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-4">
+          <SidebarTrigger className="md:hidden" />
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+            Dashboard
+          </h1>
+        </div>
+        <AddTransactionSheet />
+      </header>
+      <main className="space-y-6">
+        <MonthlyOverview />
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="md:col-span-2">
+            <AccountBalances />
+          </div>
+          <div className="md:col-span-1">
+            <Debts />
+          </div>
+        </div>
+      </main>
+    </DashboardLayout>
+  );
 }
