@@ -1,9 +1,16 @@
 import { AddTransactionSheet } from '@/components/add-transaction-sheet';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { TransactionsTable } from '@/components/transactions-table';
+import { getTransactions } from '@/lib/notion';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { transformTransactionData } from '@/lib/utils';
 
-export default function TransactionsPage() {
+export default async function TransactionsPage() {
+  const rawTransactions = await getTransactions(
+    process.env.NOTION_DATABASE_ID!
+  );
+  const transactions = transformTransactionData(rawTransactions);
+
   return (
     <DashboardLayout>
       <header className="flex justify-between items-center mb-6">
@@ -16,7 +23,7 @@ export default function TransactionsPage() {
         <AddTransactionSheet />
       </header>
       <main>
-        <TransactionsTable />
+        <TransactionsTable initialTransactions={transactions} />
       </main>
     </DashboardLayout>
   );

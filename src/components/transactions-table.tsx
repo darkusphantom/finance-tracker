@@ -28,64 +28,29 @@ import {
   SelectValue,
 } from './ui/select';
 
-const initialTransactions = [
-  {
-    id: '1',
-    date: '2024-07-25',
-    description: 'Salary',
-    amount: 5000,
-    type: 'income',
-    category: 'Income',
-  },
-  {
-    id: '2',
-    date: '2024-07-24',
-    description: 'Rent',
-    amount: -1800,
-    type: 'expense',
-    category: 'Housing',
-  },
-  {
-    id: '3',
-    date: '2024-07-23',
-    description: 'Groceries',
-    amount: -125.5,
-    type: 'expense',
-    category: 'Food & Drink',
-  },
-  {
-    id: '4',
-    date: '2024-07-22',
-    description: 'Freelance Project',
-    amount: 320.5,
-    type: 'income',
-    category: 'Income',
-  },
-  {
-    id: '5',
-    date: '2024-07-21',
-    description: 'Coffee with a friend',
-    amount: -8.75,
-    type: 'expense',
-    category: 'Food & Drink',
-  },
-  {
-    id: '6',
-    date: '2024-07-20',
-    description: 'Utilities',
-    amount: -150,
-    type: 'expense',
-    category: 'Utilities',
-  },
+const categories = [
+  'Income',
+  'Housing',
+  'Food & Drink',
+  'Utilities',
+  'Transport',
+  'Entertainment',
+  'Health',
+  'Personal Care',
+  'Shopping',
+  'Debt Payment',
+  'Other',
 ];
 
-const categories = ['Income', 'Housing', 'Food & Drink', 'Utilities', 'Transport', 'Entertainment'];
-
-export function TransactionsTable() {
+export function TransactionsTable({
+  initialTransactions = [],
+}: {
+  initialTransactions?: any[];
+}) {
   const [transactions, setTransactions] = useState(initialTransactions);
 
   const handleInputChange = (id: string, field: string, value: any) => {
-    const newTransactions = transactions.map((transaction) => {
+    const newTransactions = transactions.map(transaction => {
       if (transaction.id === id) {
         if (field === 'amount') {
           return { ...transaction, [field]: parseFloat(value) || 0 };
@@ -98,7 +63,9 @@ export function TransactionsTable() {
   };
 
   const deleteRow = (id: string) => {
-    setTransactions(transactions.filter((transaction) => transaction.id !== id));
+    setTransactions(
+      transactions.filter(transaction => transaction.id !== id)
+    );
   };
 
   return (
@@ -121,13 +88,13 @@ export function TransactionsTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map((transaction) => (
+            {transactions.map(transaction => (
               <TableRow key={transaction.id}>
                 <TableCell>
                   <Input
                     type="date"
                     value={transaction.date}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleInputChange(transaction.id, 'date', e.target.value)
                     }
                     className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0"
@@ -136,7 +103,7 @@ export function TransactionsTable() {
                 <TableCell>
                   <Input
                     value={transaction.description}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleInputChange(
                         transaction.id,
                         'description',
@@ -149,17 +116,17 @@ export function TransactionsTable() {
                 <TableCell>
                   <Select
                     value={transaction.category}
-                    onValueChange={(value) =>
+                    onValueChange={value =>
                       handleInputChange(transaction.id, 'category', value)
                     }
                   >
                     <SelectTrigger className="w-[150px] border-none bg-transparent p-0 h-auto focus:ring-0">
-                       <Badge variant="outline">
+                      <Badge variant="outline">
                         <SelectValue placeholder="Select category" />
-                       </Badge>
+                      </Badge>
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
+                      {categories.map(category => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
@@ -171,7 +138,7 @@ export function TransactionsTable() {
                   <Input
                     type="number"
                     value={transaction.amount}
-                    onChange={(e) =>
+                    onChange={e =>
                       handleInputChange(
                         transaction.id,
                         'amount',
