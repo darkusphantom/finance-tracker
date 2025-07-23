@@ -13,6 +13,18 @@ import { useState } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 
 const initialDebts = [
   {
@@ -121,14 +133,27 @@ export function Debts({ isEditable = true }: { isEditable?: boolean }) {
                 )}
               </div>
               {isEditable && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteRow(debt.id)}
-                  className="h-6 w-6"
-                >
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
+                 <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                             This action cannot be undone. This will permanently delete this item.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteRow(debt.id)}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
               )}
             </div>
             <Progress value={(debt.paid / debt.total) * 100} />
