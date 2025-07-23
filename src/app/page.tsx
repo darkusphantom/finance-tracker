@@ -21,10 +21,10 @@ export default function Home() {
         <MonthlyOverview />
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2">
-            <AccountBalances />
+            <AccountBalances isEditable={false} />
           </div>
           <div className="md:col-span-1">
-            <Debts />
+            <Debts isEditable={false}/>
           </div>
         </div>
       </main>

@@ -61,7 +61,7 @@ const initialAccounts = [
 
 const accountTypes = ['Checking', 'Savings', 'Credit', 'Investment'];
 
-export function AccountBalances() {
+export function AccountBalances({ isEditable = true }: { isEditable?: boolean }) {
   const [accounts, setAccounts] = useState(initialAccounts);
 
   const handleInputChange = (id: string, field: string, value: string) => {
@@ -96,7 +96,7 @@ export function AccountBalances() {
               <TableHead className="w-[200px]">Account</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Balance</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {isEditable && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -104,58 +104,78 @@ export function AccountBalances() {
               <TableRow key={account.id}>
                 <TableCell className="font-medium flex items-center gap-2">
                   <account.icon className="w-4 h-4 text-muted-foreground" />
-                  <Input
-                    value={account.name}
-                    onChange={(e) =>
-                      handleInputChange(account.id, 'name', e.target.value)
-                    }
-                    className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                  />
+                   {isEditable ? (
+                    <Input
+                      value={account.name}
+                      onChange={(e) =>
+                        handleInputChange(account.id, 'name', e.target.value)
+                      }
+                      className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                    />
+                  ) : (
+                    <span>{account.name}</span>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <Select
-                    value={account.type}
-                    onValueChange={(value) =>
-                      handleInputChange(account.id, 'type', value)
-                    }
-                  >
-                    <SelectTrigger className="w-[120px] border-none bg-transparent p-0 h-auto focus:ring-0">
-                      <Badge variant="outline">
-                        <SelectValue placeholder="Select type" />
-                      </Badge>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accountTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isEditable ? (
+                    <Select
+                      value={account.type}
+                      onValueChange={(value) =>
+                        handleInputChange(account.id, 'type', value)
+                      }
+                    >
+                      <SelectTrigger className="w-[120px] border-none bg-transparent p-0 h-auto focus:ring-0">
+                        <Badge variant="outline">
+                          <SelectValue placeholder="Select type" />
+                        </Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accountTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge variant="outline">{account.type}</Badge>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <Input
-                    type="number"
-                    value={account.balance}
-                    onChange={(e) =>
-                      handleInputChange(account.id, 'balance', e.target.value)
-                    }
-                    className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${
-                      account.balance >= 0
-                        ? 'text-foreground'
-                        : 'text-destructive'
-                    }`}
-                  />
+                   {isEditable ? (
+                    <Input
+                      type="number"
+                      value={account.balance}
+                      onChange={(e) =>
+                        handleInputChange(account.id, 'balance', e.target.value)
+                      }
+                      className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${
+                        account.balance >= 0
+                          ? 'text-foreground'
+                          : 'text-destructive'
+                      }`}
+                    />
+                  ) : (
+                     <span className={`font-mono ${
+                        account.balance >= 0
+                          ? 'text-foreground'
+                          : 'text-destructive'
+                      }`}>
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(account.balance)}
+                    </span>
+                  )}
                 </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteRow(account.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </TableCell>
+                {isEditable && (
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteRow(account.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

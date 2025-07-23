@@ -41,7 +41,7 @@ const initialDebts = [
   },
 ];
 
-export function Debts() {
+export function Debts({ isEditable = true }: { isEditable?: boolean }) {
   const [debts, setDebts] = useState(initialDebts);
 
   const handleInputChange = (id: string, field: string, value: any) => {
@@ -73,13 +73,17 @@ export function Debts() {
         {debts.map((debt) => (
           <div key={debt.id}>
             <div className="flex justify-between items-center mb-2">
-              <Input
-                value={debt.name}
-                onChange={(e) =>
-                  handleInputChange(debt.id, 'name', e.target.value)
-                }
-                className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-auto"
-              />
+              {isEditable ? (
+                <Input
+                  value={debt.name}
+                  onChange={(e) =>
+                    handleInputChange(debt.id, 'name', e.target.value)
+                  }
+                  className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-auto"
+                />
+              ) : (
+                <span className="font-medium">{debt.name}</span>
+              )}
               <Badge
                 variant={debt.type === 'Debt' ? 'destructive' : 'secondary'}
               >
@@ -88,33 +92,44 @@ export function Debts() {
             </div>
             <div className="flex justify-between items-baseline text-sm mb-1">
               <div className="text-muted-foreground flex items-center gap-1">
-                Paid: $
-                <Input
-                  type="number"
-                  value={debt.paid}
-                  onChange={(e) =>
-                    handleInputChange(debt.id, 'paid', e.target.value)
-                  }
-                  className="font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-20"
-                />
-                of $
-                <Input
-                  type="number"
-                  value={debt.total}
-                  onChange={(e) =>
-                    handleInputChange(debt.id, 'total', e.target.value)
-                  }
-                  className="font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-20"
-                />
+                Paid: 
+                {isEditable ? (
+                  <>
+                    $
+                    <Input
+                      type="number"
+                      value={debt.paid}
+                      onChange={(e) =>
+                        handleInputChange(debt.id, 'paid', e.target.value)
+                      }
+                      className="font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-20"
+                    />
+                    of $
+                    <Input
+                      type="number"
+                      value={debt.total}
+                      onChange={(e) =>
+                        handleInputChange(debt.id, 'total', e.target.value)
+                      }
+                      className="font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-20"
+                    />
+                  </>
+                ) : (
+                  <span className="font-mono">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.paid)} of {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.total)}
+                  </span>
+                )}
               </div>
-               <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => deleteRow(debt.id)}
-                className="h-6 w-6"
-              >
-                <Trash2 className="w-4 h-4 text-destructive" />
-              </Button>
+              {isEditable && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deleteRow(debt.id)}
+                  className="h-6 w-6"
+                >
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </Button>
+              )}
             </div>
             <Progress value={(debt.paid / debt.total) * 100} />
           </div>
