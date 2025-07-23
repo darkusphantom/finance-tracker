@@ -5,9 +5,11 @@ import { getTransactions } from '@/lib/notion';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { transformTransactionData } from '@/lib/utils';
 
+export const revalidate = 0;
+
 export default async function TransactionsPage() {
   const rawTransactions = await getTransactions(
-    process.env.NOTION_TRANSACTIONS_DB!
+    process.env.NOTION_DATABASE_ID!
   );
   const transactions = transformTransactionData(rawTransactions);
 

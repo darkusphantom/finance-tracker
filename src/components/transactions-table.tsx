@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from './ui/badge';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Trash2 } from 'lucide-react';
 import { Input } from './ui/input';
@@ -57,8 +57,13 @@ export function TransactionsTable({
   const { toast } = useToast();
   const router = useRouter();
 
+  useEffect(() => {
+    setTransactions(initialTransactions);
+  }, [initialTransactions]);
+
   const handleInputChange = async (id: string, field: string, value: any) => {
     // Optimistically update the UI
+    const originalTransactions = transactions;
     const newTransactions = transactions.map(transaction => {
       if (transaction.id === id) {
         return { ...transaction, [field]: value };
@@ -77,7 +82,7 @@ export function TransactionsTable({
         variant: 'destructive',
       });
       // Revert UI change if update fails
-      setTransactions(initialTransactions);
+      setTransactions(originalTransactions);
     } else {
         router.refresh();
     }
@@ -85,6 +90,7 @@ export function TransactionsTable({
 
   const deleteRow = async (id: string) => {
     // Optimistically remove from UI
+    const originalTransactions = transactions;
     const newTransactions = transactions.filter(
       transaction => transaction.id !== id
     );
@@ -99,7 +105,7 @@ export function TransactionsTable({
         variant: 'destructive',
       });
       // Revert UI change if delete fails
-      setTransactions(initialTransactions);
+      setTransactions(originalTransactions);
     } else {
       toast({
         title: 'Transaction Deleted',

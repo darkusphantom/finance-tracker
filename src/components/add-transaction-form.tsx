@@ -81,7 +81,13 @@ export function AddTransactionForm({
         title: 'Transaction Added',
         description: `${values.description} for $${values.amount} has been added.`,
       });
-      form.reset();
+      form.reset({
+        description: '',
+        amount: 0,
+        type: 'expense',
+        category: '',
+        date: new Date(),
+      });
       router.refresh(); // Refresh the page to show the new transaction
       afterSubmit?.();
     } else {
@@ -274,7 +280,7 @@ export function AddTransactionForm({
                       step="0.01"
                       placeholder="0.00"
                       {...field}
-                      value={field.value ?? ''}
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -331,7 +337,7 @@ export function AddTransactionForm({
                   </Button>
                 </div>
                 <FormControl>
-                  <Input placeholder="e.g., Food & Drink" {...field} />
+                  <Input placeholder="e.g., Food & Drink" {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

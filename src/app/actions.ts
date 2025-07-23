@@ -60,6 +60,7 @@ export async function extractTransactionAction(
 const addTransactionSchema = z.object({
   description: z.string().min(2),
   amount: z.coerce.number(),
+  type: z.enum(['income', 'expense']),
   category: z.string().optional(),
   date: z.date(),
 });
@@ -71,10 +72,12 @@ export async function addTransactionAction(values: unknown) {
   }
 
   try {
-    const { description, amount, category, date } = parsed.data;
-    await addTransaction(process.env.NOTION_TRANSACTIONS_DB!, {
+    const { description, amount, category, date, type } = parsed.data;
+    const transactionAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+    
+    await addTransaction(process.env.NOTION_DATABASE_ID!, {
       Source: { title: [{ text: { content: description } }] },
-      Amount: { number: amount },
+      Amount: { number: transactionAmount },
       Tags: { select: { name: category || 'Other' } },
       Date: { date: { start: date.toISOString().split('T')[0] } },
     });
