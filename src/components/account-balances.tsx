@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Landmark, Trash2, Wallet } from 'lucide-react';
 import { Badge } from './ui/badge';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
@@ -39,41 +39,15 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-const initialAccounts = [
-  {
-    id: '1',
-    name: 'Main Checking',
-    type: 'Checking',
-    balance: 4850.75,
-    icon: Landmark,
-  },
-  {
-    id: '2',
-    name: 'High-Yield Savings',
-    type: 'Savings',
-    balance: 15300.0,
-    icon: Landmark,
-  },
-  {
-    id: '3',
-    name: 'Credit Card',
-    type: 'Credit',
-    balance: -750.21,
-    icon: Wallet,
-  },
-  {
-    id: '4',
-    name: 'Investment Portfolio',
-    type: 'Investment',
-    balance: 22450.0,
-    icon: Wallet,
-  },
-];
+const accountTypes = ['Corriente', 'Ahorro', 'Fisico', 'Credit', 'Investment'];
 
-const accountTypes = ['Checking', 'Savings', 'Credit', 'Investment'];
-
-export function AccountBalances({ isEditable = true }: { isEditable?: boolean }) {
+export function AccountBalances({ isEditable = true, initialAccounts = [] }: { isEditable?: boolean, initialAccounts?: any[] }) {
   const [accounts, setAccounts] = useState(initialAccounts);
+
+   useEffect(() => {
+    setAccounts(initialAccounts);
+  }, [initialAccounts]);
+
 
   const handleInputChange = (id: string, field: string, value: string) => {
     const newAccounts = accounts.map((account) => {
@@ -91,6 +65,19 @@ export function AccountBalances({ isEditable = true }: { isEditable?: boolean })
   const deleteRow = (id: string) => {
     setAccounts(accounts.filter((account) => account.id !== id));
   };
+
+  const getIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+        case 'corriente':
+        case 'ahorro':
+            return Landmark;
+        case 'fisico':
+        case 'credit':
+        case 'investment':
+        default:
+            return Wallet;
+    }
+  }
 
   return (
     <Card>
@@ -111,10 +98,12 @@ export function AccountBalances({ isEditable = true }: { isEditable?: boolean })
             </TableRow>
           </TableHeader>
           <TableBody>
-            {accounts.map((account) => (
+            {accounts.map((account) => {
+              const Icon = getIcon(account.type);
+              return (
               <TableRow key={account.id}>
                 <TableCell className="font-medium flex items-center gap-2">
-                  <account.icon className="w-4 h-4 text-muted-foreground" />
+                  <Icon className="w-4 h-4 text-muted-foreground" />
                    {isEditable ? (
                     <Input
                       value={account.name}
@@ -202,7 +191,7 @@ export function AccountBalances({ isEditable = true }: { isEditable?: boolean })
                   </TableCell>
                 )}
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </CardContent>

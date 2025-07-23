@@ -2,8 +2,15 @@ import { AccountBalances } from '@/components/account-balances';
 import { AddTransactionSheet } from '@/components/add-transaction-sheet';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { getAccounts } from '@/lib/notion';
+import { transformAccountData } from '@/lib/utils';
 
-export default function AccountsPage() {
+export const revalidate = 0;
+
+export default async function AccountsPage() {
+    const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
+    const accounts = transformAccountData(rawAccounts);
+
   return (
     <DashboardLayout>
       <header className="flex justify-between items-center mb-6">
@@ -16,7 +23,7 @@ export default function AccountsPage() {
         <AddTransactionSheet />
       </header>
       <main>
-        <AccountBalances />
+        <AccountBalances initialAccounts={accounts}/>
       </main>
     </DashboardLayout>
   );

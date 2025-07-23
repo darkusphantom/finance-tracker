@@ -25,6 +25,28 @@ export const getTransactions = async (databaseId: string) => {
   }
 };
 
+export const getAccounts = async (databaseId: string) => {
+    try {
+        if (!databaseId) {
+            console.warn('Accounts Database ID is not defined.');
+            return [];
+        }
+        const response = await notion.databases.query({
+            database_id: databaseId,
+            filter: {
+                property: 'Is Active',
+                checkbox: {
+                    equals: true,
+                },
+            },
+        });
+        return response.results;
+    } catch (error) {
+        console.error(`Error fetching accounts from Notion DB ${databaseId}:`, error);
+        return [];
+    }
+};
+
 export const getAllTransactions = async (expenseDbId: string, incomeDbId: string) => {
   const [expenseTransactions, incomeTransactions] = await Promise.all([
     getTransactions(expenseDbId),

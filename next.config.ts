@@ -36,6 +36,7 @@ const nextConfig: NextConfig = {
     NOTION_TRANSACTIONS_DB: process.env.NOTION_TRANSACTIONS_DB,
     NOTION_INCOME_DB: process.env.NOTION_INCOME_DB,
     NOTION_TOTAL_SAVINGS_DB: process.env.NOTION_TOTAL_SAVINGS_DB,
+    NOTION_ACCOUNTS_DB: process.env.NOTION_ACCOUNTS_DB,
   }
 };
 
