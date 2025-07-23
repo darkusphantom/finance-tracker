@@ -17,7 +17,6 @@ export const getTransactions = async (databaseId: string) => {
     return response.results;
   } catch (error) {
     console.error('Error fetching transactions from Notion:', error);
-    // In a real app, you might want to handle this more gracefully
     return [];
   }
 };
@@ -26,5 +25,19 @@ export const addTransaction = async (databaseId: string, properties: any) => {
   await notion.pages.create({
     parent: { database_id: databaseId },
     properties,
+  });
+};
+
+export const updateTransaction = async (pageId: string, properties: any) => {
+  await notion.pages.update({
+    page_id: pageId,
+    properties,
+  });
+};
+
+export const deleteTransaction = async (pageId: string) => {
+  await notion.pages.update({
+    page_id: pageId,
+    archived: true,
   });
 };

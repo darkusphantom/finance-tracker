@@ -27,6 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { useToast } from '@/hooks/use-toast';
+import {
+  updateTransactionAction,
+  deleteTransactionAction,
+} from '@/app/actions';
+import { useRouter } from 'next/navigation';
 
 const categories = [
   'Income',
@@ -48,24 +54,59 @@ export function TransactionsTable({
   initialTransactions?: any[];
 }) {
   const [transactions, setTransactions] = useState(initialTransactions);
+  const { toast } = useToast();
+  const router = useRouter();
 
-  const handleInputChange = (id: string, field: string, value: any) => {
+  const handleInputChange = async (id: string, field: string, value: any) => {
+    // Optimistically update the UI
     const newTransactions = transactions.map(transaction => {
       if (transaction.id === id) {
-        if (field === 'amount') {
-          return { ...transaction, [field]: parseFloat(value) || 0 };
-        }
         return { ...transaction, [field]: value };
       }
       return transaction;
     });
     setTransactions(newTransactions);
+
+    // Call server action to update Notion
+    const result = await updateTransactionAction({ id, field, value });
+
+    if (result?.error) {
+      toast({
+        title: 'Update Failed',
+        description: result.error,
+        variant: 'destructive',
+      });
+      // Revert UI change if update fails
+      setTransactions(initialTransactions);
+    } else {
+        router.refresh();
+    }
   };
 
-  const deleteRow = (id: string) => {
-    setTransactions(
-      transactions.filter(transaction => transaction.id !== id)
+  const deleteRow = async (id: string) => {
+    // Optimistically remove from UI
+    const newTransactions = transactions.filter(
+      transaction => transaction.id !== id
     );
+    setTransactions(newTransactions);
+
+    const result = await deleteTransactionAction(id);
+
+    if (result?.error) {
+      toast({
+        title: 'Delete Failed',
+        description: result.error,
+        variant: 'destructive',
+      });
+      // Revert UI change if delete fails
+      setTransactions(initialTransactions);
+    } else {
+      toast({
+        title: 'Transaction Deleted',
+        description: 'The transaction has been removed.',
+      });
+      router.refresh();
+    }
   };
 
   return (

@@ -7,7 +7,7 @@ import { transformTransactionData } from '@/lib/utils';
 
 export default async function TransactionsPage() {
   const rawTransactions = await getTransactions(
-    process.env.NOTION_DATABASE_ID!
+    process.env.NOTION_TRANSACTIONS_DB!
   );
   const transactions = transformTransactionData(rawTransactions);
 

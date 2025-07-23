@@ -29,10 +29,15 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Sparkles, Loader2, Camera } from 'lucide-react';
 import { useState, useRef } from 'react';
-import { suggestCategoryAction, extractTransactionAction } from '@/app/actions';
+import {
+  suggestCategoryAction,
+  extractTransactionAction,
+  addTransactionAction,
+} from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   description: z.string().min(2, {
@@ -54,12 +59,13 @@ export function AddTransactionForm({
   const [isScanning, setIsScanning] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
-      amount: undefined,
+      amount: 0,
       type: 'expense',
       category: '',
       date: new Date(),
@@ -68,16 +74,24 @@ export function AddTransactionForm({
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    console.log(values);
-    // Here you would typically call a server action to save to Notion
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-    toast({
-      title: 'Transaction Added',
-      description: `${values.description} for $${values.amount} has been added.`,
-    });
+    const result = await addTransactionAction(values);
+    
+    if (result.success) {
+      toast({
+        title: 'Transaction Added',
+        description: `${values.description} for $${values.amount} has been added.`,
+      });
+      form.reset();
+      router.refresh(); // Refresh the page to show the new transaction
+      afterSubmit?.();
+    } else {
+      toast({
+        title: 'Submission Failed',
+        description: result.error,
+        variant: 'destructive',
+      });
+    }
     setIsSubmitting(false);
-    form.reset();
-    afterSubmit?.();
   }
 
   async function handleSuggestCategory() {
