@@ -12,8 +12,10 @@ import {
   addTransaction,
   deleteTransaction,
   updateTransaction,
+  findOrCreateMonthPage,
 } from '@/lib/notion';
 import { z } from 'zod';
+import { format } from 'date-fns';
 
 const suggestCategorySchema = z.object({
   description: z.string().min(1, 'Description is required.'),
@@ -73,13 +75,22 @@ export async function addTransactionAction(values: unknown) {
 
   try {
     const { description, amount, category, date, type } = parsed.data;
-    const transactionAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
-    
-    await addTransaction(process.env.NOTION_DATABASE_ID!, {
+
+    const monthName = format(date, 'MMMM yyyy');
+    const monthPageId = await findOrCreateMonthPage(
+      process.env.NOTION_TOTAL_SAVINGS_DB!,
+      monthName
+    );
+
+    const transactionAmount =
+      type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+
+    await addTransaction(process.env.NOTION_TRANSACTIONS_DB!, {
       Source: { title: [{ text: { content: description } }] },
       Amount: { number: transactionAmount },
       Tags: { select: { name: category || 'Other' } },
       Date: { date: { start: date.toISOString().split('T')[0] } },
+      Month: { relation: [{ id: monthPageId }] },
     });
     return { success: true };
   } catch (error) {
