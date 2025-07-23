@@ -50,7 +50,7 @@ export function AddTransactionForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
-      amount: undefined,
+      amount: '' as any, // Fix: Initialize with an empty string
       type: 'expense',
       category: '',
     },
