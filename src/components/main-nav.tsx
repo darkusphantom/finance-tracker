@@ -1,18 +1,20 @@
+'use client';
+
 import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
 import { LayoutDashboard, Wallet, PiggyBank, ReceiptText } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export function MainNav() {
-  // For this single-page app, only Dashboard is "active".
-  // In a multi-page app, you'd use usePathname() to determine active state.
+  const pathname = usePathname();
   const menuItems = [
-    { href: '#', label: 'Dashboard', icon: LayoutDashboard, active: true },
-    { href: '#', label: 'Accounts', icon: Wallet, active: false },
-    { href: '#', label: 'Debts', icon: PiggyBank, active: false },
-    { href: '#', label: 'Transactions', icon: ReceiptText, active: false },
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/accounts', label: 'Accounts', icon: Wallet },
+    { href: '/debts', label: 'Debts', icon: PiggyBank },
+    { href: '/transactions', label: 'Transactions', icon: ReceiptText },
   ];
 
   return (
@@ -21,7 +23,7 @@ export function MainNav() {
         <SidebarMenuItem key={item.label}>
           <SidebarMenuButton
             href={item.href}
-            isActive={item.active}
+            isActive={pathname === item.href}
             asChild
           >
             <a href={item.href}>
