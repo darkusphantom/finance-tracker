@@ -17,6 +17,7 @@ import {
   startOfMonth,
   format,
   parseISO,
+  isValid,
 } from 'date-fns';
 
 const formatCurrency = (value: number) => {
@@ -56,6 +57,10 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
     .sort((a, b) => b.amount - a.amount);
 
   const DayWithIndicator = ({ day, ...props }: any) => {
+    if (!isValid(day)) {
+        return <div {...props}></div>
+    }
+
     const transactionsOnDay = transactions.filter(t =>
       isSameDay(parseISO(t.date), day)
     );
