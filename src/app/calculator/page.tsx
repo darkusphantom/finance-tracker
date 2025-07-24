@@ -1,6 +1,8 @@
 import { AddTransactionSheet } from '@/components/add-transaction-sheet';
+import { CurrencyConverter } from '@/components/currency-converter';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { FinancialCalculators } from '@/components/financial-calculators';
+import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function CalculatorPage() {
@@ -15,7 +17,9 @@ export default function CalculatorPage() {
         </div>
         <AddTransactionSheet />
       </header>
-      <main>
+      <main className="space-y-6">
+        <CurrencyConverter />
+        <Separator />
         <FinancialCalculators />
       </main>
     </DashboardLayout>

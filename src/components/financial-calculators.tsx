@@ -20,6 +20,14 @@ import {
 import { Loader2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
+const formatCurrency = (value: number, currency = 'VES') => {
+  return new Intl.NumberFormat('es-VE', {
+    style: 'currency',
+    currency: currency,
+    minimumFractionDigits: 2,
+  }).format(value);
+};
+
 function Rule503020Calculator() {
   const [income, setIncome] = useState<number>(0);
 
@@ -148,14 +156,6 @@ function DollarRateMonitor() {
 
     fetchRates();
   }, []);
-  
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-VE', {
-      style: 'currency',
-      currency: 'VES',
-      minimumFractionDigits: 2,
-    }).format(value);
-  };
 
   return (
     <Card>
@@ -189,11 +189,6 @@ function DollarRateMonitor() {
                             <CardTitle className="text-lg">{rate.nombre}</CardTitle>
                             <CardDescription>Fuente: {rate.fuente}</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex-grow space-y-2">
-                           <p>Compra: <span className='font-mono'>{formatCurrency(rate.compra)}</span></p>
-                           <p>Venta: <span className='font-mono'>{formatCurrency(rate.venta)}</span></p>
-                           <p>Promedio: <span className='font-mono'>{formatCurrency(rate.promedio)}</span></p>
-                        </CardContent>
                         <CardFooter>
                            <p className="text-xs text-muted-foreground w-full text-center">
                                 Actualizado: {format(new Date(rate.fechaActualizacion), "MMM d, yyyy, h:mm a")}
