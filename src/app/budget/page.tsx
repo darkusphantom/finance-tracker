@@ -4,6 +4,8 @@ import { BudgetView } from '@/components/budget-view';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { getAllTransactions } from '@/lib/notion';
 import { transformTransactionData } from '@/lib/utils';
+import { ScheduledPayments } from '@/components/scheduled-payments';
+import { Separator } from '@/components/ui/separator';
 
 export const revalidate = 0;
 
@@ -25,8 +27,10 @@ export default async function BudgetPage() {
         </div>
         <AddTransactionSheet />
       </header>
-      <main>
+      <main className="space-y-6">
         <BudgetView transactions={transactions} />
+        <Separator />
+        <ScheduledPayments />
       </main>
     </DashboardLayout>
   );
