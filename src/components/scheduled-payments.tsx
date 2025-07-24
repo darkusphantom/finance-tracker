@@ -152,6 +152,10 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
   const incomeItems = useMemo(() => sortItems(items.filter(item => item.category === 'income'), incomeSort), [items, incomeSort]);
   const expenseItems = useMemo(() => sortItems(items.filter(item => item.category === 'expense'), expenseSort), [items, expenseSort]);
 
+  const totalIncome = useMemo(() => incomeItems.reduce((acc, item) => acc + (item.amount || 0), 0), [incomeItems]);
+  const totalExpenses = useMemo(() => expenseItems.reduce((acc, item) => acc + (item.amount || 0), 0), [expenseItems]);
+
+
   const handleSort = (category: 'income' | 'expense', key: string) => {
     const setSort = category === 'income' ? setIncomeSort : setExpenseSort;
     const currentSort = category === 'income' ? incomeSort : expenseSort;
@@ -162,10 +166,15 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
     });
   }
 
-  const renderTable = (data: typeof items, category: 'income' | 'expense') => (
+  const renderTable = (data: typeof items, category: 'income' | 'expense', total: number) => (
     <div>
         <div className='flex justify-between items-center mb-2'>
-            <h3 className="text-lg font-semibold capitalize">{category === 'income' ? 'Ingresos Programados' : 'Pagos Programados'}</h3>
+             <div className="flex items-baseline gap-4">
+                <h3 className="text-lg font-semibold capitalize">{category === 'income' ? 'Ingresos Programados' : 'Pagos Programados'}</h3>
+                 <p className="text-sm text-muted-foreground">
+                    Total: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
+                </p>
+            </div>
             <Button variant="outline" size="sm" onClick={() => addNewRow(category)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Añadir
@@ -281,8 +290,8 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        <div key="income-table">{renderTable(incomeItems, 'income')}</div>
-        <div key="expense-table">{renderTable(expenseItems, 'expense')}</div>
+        <div key="income-table">{renderTable(incomeItems, 'income', totalIncome)}</div>
+        <div key="expense-table">{renderTable(expenseItems, 'expense', totalExpenses)}</div>
       </CardContent>
     </Card>
   );
