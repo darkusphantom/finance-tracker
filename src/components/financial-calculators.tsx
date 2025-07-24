@@ -17,8 +17,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { TrendingUp, Loader2, AlertCircle } from 'lucide-react';
-import { Badge } from './ui/badge';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 const formatCurrency = (value: number, currency = 'VES') => {
@@ -132,7 +131,7 @@ type ExchangeRate = {
   fechaActualizacion: string;
 };
 
-function BudgetingCalculator() {
+function DollarRateMonitor() {
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -222,11 +221,11 @@ function BudgetingCalculator() {
 
 export function FinancialCalculators() {
   return (
-    <Tabs defaultValue="budget" className="w-full">
+    <Tabs defaultValue="50-30-20" className="w-full">
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="50-30-20">50/30/20 Rule</TabsTrigger>
         <TabsTrigger value="90-10">90/10 Rule</TabsTrigger>
-        <TabsTrigger value="budget">Budgeting</TabsTrigger>
+        <TabsTrigger value="budget">Dollar Monitor</TabsTrigger>
       </TabsList>
       <TabsContent value="50-30-20" className="mt-4">
         <Rule503020Calculator />
@@ -235,7 +234,7 @@ export function FinancialCalculators() {
         <Rule9010Calculator />
       </TabsContent>
       <TabsContent value="budget" className="mt-4">
-        <BudgetingCalculator />
+        <DollarRateMonitor />
       </TabsContent>
     </Tabs>
   );
