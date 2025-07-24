@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -27,25 +27,12 @@ import {
 import { Button } from './ui/button';
 import { PlusCircle, Trash2 } from 'lucide-react';
 
-const exampleData = [
-  { id: '1', name: 'Salario', day: 15, amount: 2500, type: 'fixed', category: 'income' },
-  { id: '2', name: 'Salario', day: 30, amount: 2500, type: 'fixed', category: 'income' },
-  { id: '3', name: 'Alquiler', day: 1, amount: 1200, type: 'fixed', category: 'expense' },
-  { id: '4', name: 'Internet', day: 5, amount: 60, type: 'fixed', category: 'expense' },
-  { id: '5', name: 'Electricidad', day: 10, amount: 80, type: 'variable', category: 'expense' },
-  { id: '6', name: 'Agua', day: 10, amount: 40, type: 'variable', category: 'expense' },
-  { id: '7', name: 'Freelance', day: 20, amount: 500, type: 'variable', category: 'income' },
-];
+export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] }) {
+  const [items, setItems] = useState(initialItems);
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(value);
-  };
-
-export function ScheduledPayments() {
-  const [items, setItems] = useState(exampleData);
+  useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
 
   const handleInputChange = (id: string, field: string, value: any) => {
     const newItems = items.map(item => {

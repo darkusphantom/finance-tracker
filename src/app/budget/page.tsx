@@ -2,8 +2,14 @@ import { AddTransactionSheet } from '@/components/add-transaction-sheet';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { BudgetView } from '@/components/budget-view';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { getAllTransactions } from '@/lib/notion';
-import { transformTransactionData } from '@/lib/utils';
+import {
+  getAllTransactions,
+  getScheduledPayments,
+} from '@/lib/notion';
+import {
+  transformTransactionData,
+  transformScheduledPaymentsData,
+} from '@/lib/utils';
 import { ScheduledPayments } from '@/components/scheduled-payments';
 import { Separator } from '@/components/ui/separator';
 
@@ -15,6 +21,11 @@ export default async function BudgetPage() {
     process.env.NOTION_INCOME_DB!
   );
   const transactions = transformTransactionData(rawTransactions);
+
+  const rawScheduledPayments = await getScheduledPayments(
+    process.env.NOTION_BUDGET_DB!
+  );
+  const scheduledPayments = transformScheduledPaymentsData(rawScheduledPayments);
 
   return (
     <DashboardLayout>
@@ -30,7 +41,7 @@ export default async function BudgetPage() {
       <main className="space-y-6">
         <BudgetView transactions={transactions} />
         <Separator />
-        <ScheduledPayments />
+        <ScheduledPayments initialItems={scheduledPayments} />
       </main>
     </DashboardLayout>
   );

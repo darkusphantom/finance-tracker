@@ -88,6 +88,24 @@ export const transformTransactionData = (notionPages: any[]): any[] => {
   });
 };
 
+export const transformScheduledPaymentsData = (notionPages: any[]): any[] => {
+  if (!notionPages) return [];
+  return notionPages.map(page => {
+    const props = (page as any).properties;
+    const category = getProperty(props.Category);
+    const type = getProperty(props.Type);
+
+    return {
+      id: page.id,
+      name: getProperty(props.Name) || 'N/A',
+      day: getProperty(props['Month Day']) || 1,
+      amount: getProperty(props['Budget Amount']) || 0,
+      type: type === 'Fijo' ? 'fixed' : 'variable',
+      category: category === 'Ingreso' ? 'income' : 'expense',
+    };
+  });
+};
+
 export const calculateFinancialSummary = (transactions: any[]) => {
   const now = new Date();
   const currentMonth = getMonth(now);
