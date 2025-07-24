@@ -11,6 +11,7 @@ import {
   PiggyBank,
   ReceiptText,
   CalendarCheck,
+  Calculator,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -22,6 +23,7 @@ export function MainNav() {
     { href: '/debts', label: 'Debts', icon: PiggyBank },
     { href: '/transactions', label: 'Transactions', icon: ReceiptText },
     { href: '/budget', label: 'Budget', icon: CalendarCheck },
+    { href: '/calculator', label: 'Calculator', icon: Calculator },
   ];
 
   return (
