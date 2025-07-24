@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { Button } from './ui/button';
-import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, ArrowUpDown } from 'lucide-react';
 import {
   addScheduledPaymentAction,
   updateScheduledPaymentAction,
@@ -38,6 +38,8 @@ import { v4 as uuidv4 } from 'uuid';
 export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] }) {
   const [items, setItems] = useState(initialItems.map(item => ({ ...item, tempId: item.id || uuidv4() })));
   const [isSaving, setIsSaving] = useState<string | null>(null);
+  const [incomeSort, setIncomeSort] = useState({ key: 'name', order: 'asc' });
+  const [expenseSort, setExpenseSort] = useState({ key: 'name', order: 'asc' });
   const { toast } = useToast();
   const router = useRouter();
 
@@ -136,9 +138,29 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
       }
     }
   };
+
+  const sortItems = (data: typeof items, sortConfig: {key: string, order: string}) => {
+    return [...data].sort((a, b) => {
+        const aValue = a[sortConfig.key as keyof typeof a];
+        const bValue = b[sortConfig.key as keyof typeof a];
+        if (aValue < bValue) return sortConfig.order === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.order === 'asc' ? 1 : -1;
+        return 0;
+    });
+  }
   
-  const incomeItems = items.filter(item => item.category === 'income');
-  const expenseItems = items.filter(item => item.category === 'expense');
+  const incomeItems = useMemo(() => sortItems(items.filter(item => item.category === 'income'), incomeSort), [items, incomeSort]);
+  const expenseItems = useMemo(() => sortItems(items.filter(item => item.category === 'expense'), expenseSort), [items, expenseSort]);
+
+  const handleSort = (category: 'income' | 'expense', key: string) => {
+    const setSort = category === 'income' ? setIncomeSort : setExpenseSort;
+    const currentSort = category === 'income' ? incomeSort : expenseSort;
+
+    setSort({
+        key,
+        order: currentSort.key === key && currentSort.order === 'asc' ? 'desc' : 'asc'
+    });
+  }
 
   const renderTable = (data: typeof items, category: 'income' | 'expense') => (
     <div>
@@ -152,10 +174,30 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nombre</TableHead>
-            <TableHead className='text-center'>Día del Mes</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Monto</TableHead>
+            <TableHead>
+                <Button variant="ghost" onClick={() => handleSort(category, 'name')}>
+                    Nombre
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            </TableHead>
+            <TableHead className='text-center'>
+                <Button variant="ghost" onClick={() => handleSort(category, 'day')}>
+                    Día del Mes
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            </TableHead>
+            <TableHead>
+                <Button variant="ghost" onClick={() => handleSort(category, 'type')}>
+                    Tipo
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            </TableHead>
+            <TableHead>
+                <Button variant="ghost" onClick={() => handleSort(category, 'amount')}>
+                    Monto
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            </TableHead>
             <TableHead className="text-right">Acción</TableHead>
           </TableRow>
         </TableHeader>
