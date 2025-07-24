@@ -58,6 +58,10 @@ export const getDebts = async (databaseId: string) => {
 }
 
 export const getAllTransactions = async (expenseDbId: string, incomeDbId: string) => {
+  if (!expenseDbId && !incomeDbId) {
+    return [];
+  }
+  
   const [expenseTransactions, incomeTransactions] = await Promise.all([
     getTransactions(expenseDbId),
     getTransactions(incomeDbId)
@@ -70,8 +74,8 @@ export const getAllTransactions = async (expenseDbId: string, incomeDbId: string
   
   // Sort by date, most recent first
   allTransactions.sort((a, b) => {
-    const dateA = new Date((a as any).properties.Date.date.start);
-    const dateB = new Date((b as any).properties.Date.date.start);
+    const dateA = new Date((a as any).properties.Date?.date?.start || 0);
+    const dateB = new Date((b as any).properties.Date?.date?.start || 0);
     return dateB.getTime() - dateA.getTime();
   });
 

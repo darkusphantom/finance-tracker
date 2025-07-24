@@ -14,7 +14,7 @@ const formatCurrency = (value: number) => {
 };
 
 export function FinancialChart({ summary }: { summary: any }) {
-    const { currentMonthIncome, currentMonthExpenses, currentMonthNet, annualChartData } = summary;
+    const { currentMonthIncome, currentMonthExpenses, currentMonthNet, annualChartData } = summary || {};
 
     return (
         <Card>
@@ -29,23 +29,23 @@ export function FinancialChart({ summary }: { summary: any }) {
                     <div className="flex flex-col gap-2">
                         <p className="text-sm text-muted-foreground">This Month's Income</p>
                         <p className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
-                            <TrendingUp /> {formatCurrency(currentMonthIncome)}
+                            <TrendingUp /> {formatCurrency(currentMonthIncome || 0)}
                         </p>
                     </div>
                     <div className="flex flex-col gap-2">
                         <p className="text-sm text-muted-foreground">This Month's Expenses</p>
                         <p className="text-2xl font-bold text-destructive flex items-center justify-center gap-2">
-                            <TrendingDown /> {formatCurrency(currentMonthExpenses)}
+                            <TrendingDown /> {formatCurrency(currentMonthExpenses || 0)}
                         </p>
                     </div>
                     <div className="flex flex-col gap-2">
                         <p className="text-sm text-muted-foreground">This Month's Net</p>
                         <p
                             className={`text-2xl font-bold flex items-center justify-center gap-2 ${
-                                currentMonthNet >= 0 ? 'text-primary' : 'text-destructive'
+                                (currentMonthNet || 0) >= 0 ? 'text-primary' : 'text-destructive'
                             }`}
                         >
-                            {formatCurrency(currentMonthNet)}
+                            {formatCurrency(currentMonthNet || 0)}
                         </p>
                     </div>
                 </div>
@@ -53,7 +53,7 @@ export function FinancialChart({ summary }: { summary: any }) {
                 <div className="h-[350px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                            data={annualChartData}
+                            data={annualChartData || []}
                             margin={{
                                 top: 5,
                                 right: 30,
