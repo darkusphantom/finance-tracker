@@ -99,24 +99,25 @@ export const getAllTransactions = async (expenseDbId: string, incomeDbId: string
   return allTransactions;
 };
 
-export const addTransaction = async (databaseId: string, properties: any) => {
+export const addPageToDb = async (databaseId: string, properties: any) => {
   if (!databaseId) {
     throw new Error('Database ID is undefined');
   }
-  await notion.pages.create({
+  const response = await notion.pages.create({
     parent: { database_id: databaseId },
     properties,
   });
+  return response;
 };
 
-export const updateTransaction = async (pageId: string, properties: any) => {
+export const updatePage = async (pageId: string, properties: any) => {
   await notion.pages.update({
     page_id: pageId,
     properties,
   });
 };
 
-export const deleteTransaction = async (pageId: string) => {
+export const deletePage = async (pageId: string) => {
   await notion.pages.update({
     page_id: pageId,
     archived: true,

@@ -9,9 +9,9 @@ import {
   type ExtractTransactionFromImageInput,
 } from '@/ai/flows/extract-transaction-from-image';
 import {
-  addTransaction,
-  deleteTransaction,
-  updateTransaction,
+  addPageToDb,
+  deletePage,
+  updatePage,
   findOrCreateMonthPage,
 } from '@/lib/notion';
 import { z } from 'zod';
@@ -88,7 +88,7 @@ export async function addTransactionAction(values: unknown) {
       ? process.env.NOTION_INCOME_DB!
       : process.env.NOTION_TRANSACTIONS_DB!;
 
-    await addTransaction(databaseId, {
+    await addPageToDb(databaseId, {
       Source: { title: [{ text: { content: description } }] },
       Amount: { number: transactionAmount },
       Tags: { select: { name: category || 'Other' } },
@@ -135,7 +135,7 @@ export async function updateTransactionAction(values: unknown) {
         return { error: 'Invalid field.' };
     }
 
-    await updateTransaction(id, notionProperty);
+    await updatePage(id, notionProperty);
     return { success: true };
   } catch (error) {
     console.error('Failed to update transaction in Notion:', error);
@@ -145,10 +145,92 @@ export async function updateTransactionAction(values: unknown) {
 
 export async function deleteTransactionAction(id: string) {
   try {
-    await deleteTransaction(id);
+    await deletePage(id);
     return { success: true };
   } catch (error) {
     console.error('Failed to delete transaction in Notion:', error);
     return { error: 'Failed to delete transaction.' };
   }
+}
+
+
+const scheduledPaymentSchema = z.object({
+    name: z.string().min(1, 'Name is required'),
+    day: z.coerce.number().min(1).max(31),
+    amount: z.coerce.number(),
+    type: z.enum(['fixed', 'variable']),
+    category: z.enum(['income', 'expense']),
+});
+
+export async function addScheduledPaymentAction(values: z.infer<typeof scheduledPaymentSchema>) {
+    const parsed = scheduledPaymentSchema.safeParse(values);
+    if (!parsed.success) {
+        return { error: 'Invalid input.', details: parsed.error.format() };
+    }
+
+    try {
+        const { name, day, amount, type, category } = parsed.data;
+        const notionProperties = {
+            'Name': { title: [{ text: { content: name } }] },
+            'Month Day': { number: day },
+            'Budget Amount': { number: amount },
+            'Type': { select: { name: type === 'fixed' ? 'Fijo' : 'Variable' } },
+            'Category': { select: { name: category === 'income' ? 'Ingreso' : 'Pago' } },
+        };
+        const newPage = await addPageToDb(process.env.NOTION_BUDGET_DB!, notionProperties);
+        return { success: true, newPageId: newPage.id };
+    } catch (error) {
+        console.error('Failed to add scheduled payment to Notion:', error);
+        return { error: 'Failed to save scheduled payment.' };
+    }
+}
+
+const updateScheduledPaymentSchema = z.object({
+  id: z.string(),
+  field: z.string(),
+  value: z.any(),
+});
+
+export async function updateScheduledPaymentAction(values: unknown) {
+    const parsed = updateScheduledPaymentSchema.safeParse(values);
+    if (!parsed.success) {
+        return { error: 'Invalid input.' };
+    }
+
+    try {
+        const { id, field, value } = parsed.data;
+        let notionProperty;
+        switch (field) {
+            case 'name':
+                notionProperty = { 'Name': { title: [{ text: { content: value } }] } };
+                break;
+            case 'day':
+                notionProperty = { 'Month Day': { number: parseInt(value, 10) || 1 } };
+                break;
+            case 'amount':
+                notionProperty = { 'Budget Amount': { number: parseFloat(value) || 0 } };
+                break;
+            case 'type':
+                notionProperty = { 'Type': { select: { name: value === 'fixed' ? 'Fijo' : 'Variable' } } };
+                break;
+            default:
+                return { error: 'Invalid field.' };
+        }
+        await updatePage(id, notionProperty);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to update scheduled payment in Notion:', error);
+        return { error: 'Failed to update scheduled payment.' };
+    }
+}
+
+
+export async function deleteScheduledPaymentAction(id: string) {
+    try {
+        await deletePage(id);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to delete scheduled payment in Notion:', error);
+        return { error: 'Failed to delete scheduled payment.' };
+    }
 }
