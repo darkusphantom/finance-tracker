@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Landmark, Trash2, Wallet } from 'lucide-react';
 import { Badge } from './ui/badge';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from './ui/checkbox';
 
 const accountTypes = ['Corriente', 'Ahorro', 'Fisico', 'Credit', 'Investment'];
 
@@ -51,11 +52,18 @@ export function AccountBalances({
   const [accounts, setAccounts] = useState(() => initialAccounts);
   const displayAccounts = isEditable ? accounts : initialAccounts;
 
-  const handleInputChange = (id: string, field: string, value: string) => {
+  useEffect(() => {
+    setAccounts(initialAccounts);
+  }, [initialAccounts]);
+
+  const handleInputChange = (id: string, field: string, value: any) => {
     const newAccounts = accounts.map(account => {
       if (account.id === id) {
         if (field === 'balance') {
           return { ...account, [field]: parseFloat(value) || 0 };
+        }
+        if (field === 'isActive') {
+          return { ...account, [field]: value };
         }
         return { ...account, [field]: value };
       }
@@ -96,6 +104,7 @@ export function AccountBalances({
               <TableHead className="w-[200px]">Account</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Balance</TableHead>
+              <TableHead>Active</TableHead>
               {isEditable && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -175,6 +184,15 @@ export function AccountBalances({
                         }).format(account.balance)}
                       </span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Checkbox
+                        checked={account.isActive}
+                        onCheckedChange={value =>
+                            isEditable && handleInputChange(account.id, 'isActive', value)
+                        }
+                        disabled={!isEditable}
+                    />
                   </TableCell>
                   {isEditable && (
                     <TableCell className="text-right">

@@ -33,12 +33,6 @@ export const getAccounts = async (databaseId: string) => {
         }
         const response = await notion.databases.query({
             database_id: databaseId,
-            filter: {
-                property: 'Is Active',
-                checkbox: {
-                    equals: true,
-                },
-            },
         });
         return response.results;
     } catch (error) {
