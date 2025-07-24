@@ -60,6 +60,7 @@ export function AccountBalances({
   }, [initialAccounts]);
 
   const handleSort = (key: string) => {
+    if (!isEditable) return;
     setSort(prevSort => ({
       key,
       order: prevSort.key === key && prevSort.order === 'asc' ? 'desc' : 'asc',
@@ -67,6 +68,9 @@ export function AccountBalances({
   };
 
   const sortedAndFilteredAccounts = useMemo(() => {
+    if (!isEditable) {
+      return accounts.slice(0, itemsPerPage);
+    }
     return accounts
       .filter(account =>
         account.name.toLowerCase().includes(filter.toLowerCase())
@@ -78,14 +82,17 @@ export function AccountBalances({
         if (aValue > bValue) return sort.order === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [accounts, filter, sort]);
+  }, [accounts, filter, sort, isEditable, itemsPerPage]);
 
   const paginatedAccounts = useMemo(() => {
+    if (!isEditable) {
+      return sortedAndFilteredAccounts;
+    }
     const startIndex = (page - 1) * itemsPerPage;
     return sortedAndFilteredAccounts.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedAndFilteredAccounts, page, itemsPerPage]);
+  }, [sortedAndFilteredAccounts, page, itemsPerPage, isEditable]);
 
-  const totalPages = Math.ceil(sortedAndFilteredAccounts.length / itemsPerPage);
+  const totalPages = isEditable ? Math.ceil(sortedAndFilteredAccounts.length / itemsPerPage) : 1;
 
   const handleInputChange = (id: string, field: string, value: any) => {
     const newAccounts = accounts.map(account => {
@@ -142,28 +149,36 @@ export function AccountBalances({
           <TableHeader>
             <TableRow>
               <TableHead>
-                 <Button variant="ghost" onClick={() => handleSort('isActive')}>
-                    Paused
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
+                 {isEditable ? (
+                    <Button variant="ghost" onClick={() => handleSort('isActive')}>
+                      Paused
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                 ) : "Paused"}
               </TableHead>
               <TableHead>
-                 <Button variant="ghost" onClick={() => handleSort('name')}>
-                    Account
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
+                {isEditable ? (
+                    <Button variant="ghost" onClick={() => handleSort('name')}>
+                      Account
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                ) : "Account"}
               </TableHead>
               <TableHead>
-                 <Button variant="ghost" onClick={() => handleSort('type')}>
-                    Type
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
+                {isEditable ? (
+                    <Button variant="ghost" onClick={() => handleSort('type')}>
+                      Type
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                ) : "Type"}
               </TableHead>
               <TableHead>
-                 <Button variant="ghost" onClick={() => handleSort('balance')}>
+                {isEditable ? (
+                  <Button variant="ghost" onClick={() => handleSort('balance')}>
                     Balance
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
+                ) : "Balance"}
               </TableHead>
               {isEditable && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>

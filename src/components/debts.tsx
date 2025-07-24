@@ -37,15 +37,21 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
   }, [initialDebts]);
 
   const filteredDebts = useMemo(() => {
+     if (!isEditable) {
+        return debts.slice(0, itemsPerPage);
+     }
      return debts.filter(debt => debt.name.toLowerCase().includes(filter.toLowerCase()));
-  }, [debts, filter]);
+  }, [debts, filter, isEditable, itemsPerPage]);
 
   const paginatedDebts = useMemo(() => {
+    if (!isEditable) {
+      return filteredDebts;
+    }
     const startIndex = (page - 1) * itemsPerPage;
     return filteredDebts.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredDebts, page, itemsPerPage]);
+  }, [filteredDebts, page, itemsPerPage, isEditable]);
 
-  const totalPages = Math.ceil(filteredDebts.length / itemsPerPage);
+  const totalPages = isEditable ? Math.ceil(filteredDebts.length / itemsPerPage) : 1;
 
 
   const handleInputChange = (id: string, field: string, value: any) => {
