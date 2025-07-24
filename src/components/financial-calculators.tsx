@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,12 +17,15 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Loader2, AlertCircle } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { format } from 'date-fns';
 
-const formatCurrency = (value: number, currency = 'USD') => {
-  return new Intl.NumberFormat('en-US', {
+const formatCurrency = (value: number, currency = 'VES') => {
+  return new Intl.NumberFormat('es-VE', {
     style: 'currency',
     currency: currency,
+    minimumFractionDigits: 2,
   }).format(value);
 };
 
@@ -55,19 +59,19 @@ function Rule503020Calculator() {
           <div className="flex flex-col gap-2 p-4 border rounded-lg">
             <p className="text-sm text-muted-foreground">Needs (50%)</p>
             <p className="text-2xl font-bold text-primary">
-              {formatCurrency(needs)}
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(needs)}
             </p>
           </div>
           <div className="flex flex-col gap-2 p-4 border rounded-lg">
             <p className="text-sm text-muted-foreground">Wants (30%)</p>
             <p className="text-2xl font-bold text-accent">
-              {formatCurrency(wants)}
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(wants)}
             </p>
           </div>
           <div className="flex flex-col gap-2 p-4 border rounded-lg">
             <p className="text-sm text-muted-foreground">Savings (20%)</p>
             <p className="text-2xl font-bold text-green-500">
-              {formatCurrency(savings)}
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(savings)}
             </p>
           </div>
         </div>
@@ -104,13 +108,13 @@ function Rule9010Calculator() {
                     <div className="flex flex-col gap-2 p-4 border rounded-lg">
                         <p className="text-sm text-muted-foreground">Spending (90%)</p>
                         <p className="text-2xl font-bold text-primary">
-                        {formatCurrency(spending)}
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(spending)}
                         </p>
                     </div>
                     <div className="flex flex-col gap-2 p-4 border rounded-lg">
                         <p className="text-sm text-muted-foreground">Savings (10%)</p>
                         <p className="text-2xl font-bold text-green-500">
-                        {formatCurrency(savings)}
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(savings)}
                         </p>
                     </div>
                 </div>
@@ -119,58 +123,106 @@ function Rule9010Calculator() {
     );
 }
 
+type ExchangeRate = {
+  fuente: string;
+  nombre: string;
+  compra: number;
+  venta: number;
+  promedio: number;
+  fechaActualizacion: string;
+};
+
 function BudgetingCalculator() {
-    const [usdAmount, setUsdAmount] = useState<number>(0);
-    const [exchangeRate, setExchangeRate] = useState<number>(0);
+  const [rates, setRates] = useState<ExchangeRate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    const vesAmount = usdAmount * exchangeRate;
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('https://ve.dolarapi.com/v1/dolares');
+        if (!response.ok) {
+          throw new Error('Failed to fetch exchange rates.');
+        }
+        const data = await response.json();
+        setRates(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Currency Converter</CardTitle>
-                <CardDescription>
-                Convert from US Dollars (USD) to Venezuelan Bolívar (VES).
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="usd-amount">Amount (USD)</Label>
-                        <Input
-                            id="usd-amount"
-                            type="number"
-                            placeholder="Enter amount in USD"
-                            value={usdAmount || ''}
-                            onChange={(e) => setUsdAmount(parseFloat(e.target.value) || 0)}
-                        />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="exchange-rate">Exchange Rate (USD to VES)</Label>
-                        <Input
-                            id="exchange-rate"
-                            type="number"
-                            placeholder="Enter current exchange rate"
-                            value={exchangeRate || ''}
-                            onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)}
-                        />
-                    </div>
+    fetchRates();
+  }, []);
+
+  return (
+    <Card>
+        <CardHeader>
+            <CardTitle>Monitor del Dólar en Venezuela</CardTitle>
+            <CardDescription>
+                Cotizaciones del dólar actualizadas en tiempo real.
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+        {loading && (
+          <div className="flex justify-center items-center h-40">
+            <Loader2 className="animate-spin h-8 w-8 text-primary" />
+            <p className="ml-4 text-muted-foreground">Cargando tasas...</p>
+          </div>
+        )}
+        {error && (
+            <div className="flex justify-center items-center h-40 text-destructive">
+                <AlertCircle className="h-8 w-8 mr-4" />
+                <div>
+                    <p className="font-bold">Error al cargar los datos</p>
+                    <p>{error}</p>
                 </div>
-
-                <div className="flex flex-col items-center gap-2 p-4 border rounded-lg bg-secondary">
-                    <p className="text-sm text-muted-foreground">Converted Amount</p>
-                    <p className="text-3xl font-bold text-primary">
-                        {new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(vesAmount)}
-                    </p>
-                </div>
-            </CardContent>
-        </Card>
-    );
+            </div>
+        )}
+        {!loading && !error && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {rates.map(rate => (
+                    <Card key={rate.nombre} className="flex flex-col">
+                        <CardHeader>
+                            <CardTitle className="text-lg">{rate.nombre}</CardTitle>
+                            <CardDescription>Fuente: {rate.fuente}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow space-y-4">
+                            <div className="text-center">
+                                <p className="text-sm text-muted-foreground">Promedio</p>
+                                <p className="text-3xl font-bold text-primary">{formatCurrency(rate.promedio)}</p>
+                            </div>
+                            <div className="flex justify-around text-center">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Compra</p>
+                                    <p className="text-lg font-mono">{formatCurrency(rate.compra)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Venta</p>
+                                    <p className="text-lg font-mono">{formatCurrency(rate.venta)}</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                        <CardFooter>
+                           <p className="text-xs text-muted-foreground w-full text-center">
+                                Actualizado: {format(new Date(rate.fechaActualizacion), "MMM d, yyyy, h:mm a")}
+                            </p>
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+        )}
+        </CardContent>
+    </Card>
+);
 }
 
 export function FinancialCalculators() {
   return (
-    <Tabs defaultValue="50-30-20" className="w-full">
+    <Tabs defaultValue="budget" className="w-full">
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="50-30-20">50/30/20 Rule</TabsTrigger>
         <TabsTrigger value="90-10">90/10 Rule</TabsTrigger>

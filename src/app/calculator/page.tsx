@@ -10,7 +10,7 @@ export default function CalculatorPage() {
         <div className="flex items-center gap-4">
           <SidebarTrigger className="md:hidden" />
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Financial Calculators
+            Financial Tools
           </h1>
         </div>
         <AddTransactionSheet />
