@@ -36,13 +36,13 @@ import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 
 export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] }) {
-  const [items, setItems] = useState(initialItems);
+  const [items, setItems] = useState(initialItems.map(item => ({ ...item, tempId: item.id || uuidv4() })));
   const [isSaving, setIsSaving] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    setItems(initialItems.map(item => ({ ...item, tempId: item.id })));
+    setItems(initialItems.map(item => ({ ...item, tempId: item.id || uuidv4() })));
   }, [initialItems]);
 
   const handleInputChange = (tempId: string, field: string, value: any) => {
@@ -239,8 +239,8 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {renderTable(incomeItems, 'income')}
-        {renderTable(expenseItems, 'expense')}
+        <div key="income-table">{renderTable(incomeItems, 'income')}</div>
+        <div key="expense-table">{renderTable(expenseItems, 'expense')}</div>
       </CardContent>
     </Card>
   );
