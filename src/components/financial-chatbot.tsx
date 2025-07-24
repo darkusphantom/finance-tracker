@@ -53,6 +53,8 @@ export function FinancialChatbot() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  
+  const [streamingContent, setStreamingContent] = useState('');
 
   useEffect(() => {
     try {
@@ -71,7 +73,18 @@ export function FinancialChatbot() {
         localStorage.setItem('chatHistory', JSON.stringify(messages));
     }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingContent]);
+  
+  useEffect(() => {
+    if (streamingContent) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage && lastMessage.role === 'bot') {
+        const updatedMessages = [...messages];
+        updatedMessages[messages.length - 1].content = streamingContent;
+        setMessages(updatedMessages);
+      }
+    }
+  }, [streamingContent]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -97,7 +110,7 @@ export function FinancialChatbot() {
     }
   };
 
-    const handleSendMessage = async () => {
+  const handleSendMessage = async () => {
     if (!input.trim() && !file) return;
 
     let userMessage: Message = { role: 'user', content: input };
@@ -105,17 +118,23 @@ export function FinancialChatbot() {
       userMessage.file = { name: file.name, type: file.type };
     }
 
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setIsLoading(true);
+    setInput('');
+    setFile(null);
+    if(fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
     
     let fileDataUri: string | null = null;
-    if (file) {
+    if (userMessage.file) {
       try {
         fileDataUri = await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result as string);
             reader.onerror = reject;
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(file!);
         });
       } catch (error) {
         console.error("Error reading file:", error);
@@ -125,30 +144,37 @@ export function FinancialChatbot() {
             variant: "destructive"
         });
         setIsLoading(false);
-        // Remove the message that failed to send
-        setMessages(prev => prev.slice(0, prev.length -1));
+        setMessages(messages); // Revert to old messages
         return;
       }
     }
 
-    // Keep the full history for context, but only the last message for the action
     const result = await chatWithBotAction({
-      message: input,
+      message: userMessage.content,
       fileDataUri,
     });
-    
+
+    setIsLoading(false);
+
     if (result.error) {
        setMessages(prev => [...prev, { role: 'bot', content: `Error: ${result.error}` }]);
     } else if (result.response) {
-       setMessages(prev => [...prev, { role: 'bot', content: result.response! }]);
+        setMessages(prev => [...prev, { role: 'bot', content: '' }]);
+        
+        const responseText = result.response;
+        let index = 0;
+        const intervalId = setInterval(() => {
+            setStreamingContent(responseText.substring(0, index + 1));
+            index++;
+            if (index >= responseText.length) {
+                clearInterval(intervalId);
+                // Final update to ensure local storage is correct
+                const finalMessages = [...newMessages, { role: 'bot', content: responseText }];
+                localStorage.setItem('chatHistory', JSON.stringify(finalMessages));
+
+            }
+        }, 20); // Adjust typing speed here
     }
-    
-    setInput('');
-    setFile(null);
-    if(fileInputRef.current) {
-        fileInputRef.current.value = '';
-    }
-    setIsLoading(false);
   };
   
   const MessageContent = ({ message }: { message: Message }) => {
@@ -175,7 +201,6 @@ export function FinancialChatbot() {
     );
     return content;
   }
-
 
   return (
     <Card className="flex h-[80vh] flex-col">
@@ -212,6 +237,16 @@ export function FinancialChatbot() {
               )}
             </div>
           ))}
+           {isLoading && messages[messages.length - 1]?.role === 'user' && (
+              <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shrink-0">
+                    <Bot size={20} />
+                  </div>
+                  <div className="max-w-xl rounded-lg p-3 bg-muted flex items-center">
+                    <Loader2 className="animate-spin h-5 w-5" />
+                  </div>
+              </div>
+            )}
            <div ref={messagesEndRef} />
         </div>
       </CardContent>
