@@ -53,8 +53,6 @@ export function FinancialChatbot() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  
-  const [streamingContent, setStreamingContent] = useState('');
 
   useEffect(() => {
     try {
@@ -73,18 +71,8 @@ export function FinancialChatbot() {
         localStorage.setItem('chatHistory', JSON.stringify(messages));
     }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingContent]);
+  }, [messages]);
   
-  useEffect(() => {
-    if (streamingContent) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage && lastMessage.role === 'bot') {
-        const updatedMessages = [...messages];
-        updatedMessages[messages.length - 1].content = streamingContent;
-        setMessages(updatedMessages);
-      }
-    }
-  }, [streamingContent]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -118,7 +106,7 @@ export function FinancialChatbot() {
       userMessage.file = { name: file.name, type: file.type };
     }
 
-    const newMessages = [...messages, userMessage];
+    const newMessages = [...messages, userMessage, { role: 'bot', content: '' }];
     setMessages(newMessages);
     setIsLoading(true);
     setInput('');
@@ -153,27 +141,35 @@ export function FinancialChatbot() {
       message: userMessage.content,
       fileDataUri,
     });
-
+    
     setIsLoading(false);
 
     if (result.error) {
-       setMessages(prev => [...prev, { role: 'bot', content: `Error: ${result.error}` }]);
+        setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length-1].content = `Error: ${result.error}`;
+            return updated;
+        });
     } else if (result.response) {
-        setMessages(prev => [...prev, { role: 'bot', content: '' }]);
-        
         const responseText = result.response;
         let index = 0;
         const intervalId = setInterval(() => {
-            setStreamingContent(responseText.substring(0, index + 1));
+            setMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1].content = responseText.substring(0, index + 1);
+                return updated;
+            });
             index++;
             if (index >= responseText.length) {
                 clearInterval(intervalId);
                 // Final update to ensure local storage is correct
-                const finalMessages = [...newMessages, { role: 'bot', content: responseText }];
+                const finalMessages = [...newMessages.slice(0, -1), { role: 'bot', content: responseText }];
                 localStorage.setItem('chatHistory', JSON.stringify(finalMessages));
-
             }
         }, 20); // Adjust typing speed here
+    } else {
+        // Handle case where there's no response and no error
+         setMessages(prev => prev.slice(0,-1));
     }
   };
   
@@ -228,7 +224,14 @@ export function FinancialChatbot() {
                   'bg-muted': message.role === 'bot',
                 })}
               >
-                <MessageContent message={message} />
+                {/* For the last bot message, show loader if it's empty and we are loading */}
+                 {isLoading && message.role === 'bot' && !message.content && index === messages.length - 1 ? (
+                    <div className="flex items-center">
+                        <Loader2 className="animate-spin h-5 w-5" />
+                    </div>
+                ) : (
+                     <MessageContent message={message} />
+                )}
               </div>
               {message.role === 'user' && (
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted shrink-0">
@@ -237,16 +240,6 @@ export function FinancialChatbot() {
               )}
             </div>
           ))}
-           {isLoading && messages[messages.length - 1]?.role === 'user' && (
-              <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shrink-0">
-                    <Bot size={20} />
-                  </div>
-                  <div className="max-w-xl rounded-lg p-3 bg-muted flex items-center">
-                    <Loader2 className="animate-spin h-5 w-5" />
-                  </div>
-              </div>
-            )}
            <div ref={messagesEndRef} />
         </div>
       </CardContent>
