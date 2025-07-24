@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from './ui/badge';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Trash2 } from 'lucide-react';
 import { Input } from './ui/input';
@@ -65,12 +65,26 @@ export function TransactionsTable({
   initialTransactions?: any[];
 }) {
   const [transactions, setTransactions] = useState(initialTransactions);
+  const [filter, setFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 15;
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
     setTransactions(initialTransactions);
   }, [initialTransactions]);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => t.description.toLowerCase().includes(filter.toLowerCase()));
+  }, [transactions, filter]);
+
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTransactions, page]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
 
   const handleInputChange = async (id: string, field: string, value: any) => {
     // Optimistically update the UI
@@ -135,6 +149,13 @@ export function TransactionsTable({
         </CardDescription>
       </CardHeader>
       <CardContent>
+         <div className="mb-4">
+            <Input 
+              placeholder="Search by description..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -146,7 +167,7 @@ export function TransactionsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map(transaction => (
+            {paginatedTransactions.map(transaction => (
               <TableRow key={transaction.id}>
                 <TableCell>
                   <Input
@@ -239,6 +260,13 @@ export function TransactionsTable({
             ))}
           </TableBody>
         </Table>
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+              <Button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} variant="outline">Previous</Button>
+              <span>Page {page} of {totalPages}</span>
+              <Button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} variant="outline">Next</Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

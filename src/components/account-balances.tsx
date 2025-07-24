@@ -15,9 +15,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Landmark, Trash2, Wallet } from 'lucide-react';
+import { Landmark, Trash2, Wallet, ArrowUpDown } from 'lucide-react';
 import { Badge } from './ui/badge';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
@@ -49,12 +49,43 @@ export function AccountBalances({
   isEditable?: boolean;
   initialAccounts?: any[];
 }) {
-  const [accounts, setAccounts] = useState(() => initialAccounts);
-  const displayAccounts = isEditable ? accounts : initialAccounts;
+  const [accounts, setAccounts] = useState(() => [...initialAccounts]);
+  const [filter, setFilter] = useState('');
+  const [sort, setSort] = useState({ key: 'name', order: 'asc' });
+  const [page, setPage] = useState(1);
+  const itemsPerPage = isEditable ? 15 : 10;
 
   useEffect(() => {
-    setAccounts(initialAccounts);
+    setAccounts([...initialAccounts]);
   }, [initialAccounts]);
+
+  const handleSort = (key: string) => {
+    setSort(prevSort => ({
+      key,
+      order: prevSort.key === key && prevSort.order === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
+  const sortedAndFilteredAccounts = useMemo(() => {
+    return accounts
+      .filter(account =>
+        account.name.toLowerCase().includes(filter.toLowerCase())
+      )
+      .sort((a, b) => {
+        const aValue = a[sort.key as keyof typeof a];
+        const bValue = b[sort.key as keyof typeof a];
+        if (aValue < bValue) return sort.order === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sort.order === 'asc' ? 1 : -1;
+        return 0;
+      });
+  }, [accounts, filter, sort]);
+
+  const paginatedAccounts = useMemo(() => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return sortedAndFilteredAccounts.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedAndFilteredAccounts, page, itemsPerPage]);
+
+  const totalPages = Math.ceil(sortedAndFilteredAccounts.length / itemsPerPage);
 
   const handleInputChange = (id: string, field: string, value: any) => {
     const newAccounts = accounts.map(account => {
@@ -98,18 +129,47 @@ export function AccountBalances({
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {isEditable && (
+           <div className="mb-4">
+             <Input
+               placeholder="Search accounts..."
+               value={filter}
+               onChange={(e) => setFilter(e.target.value)}
+             />
+           </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Paused</TableHead>
-              <TableHead className="w-[200px]">Account</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Balance</TableHead>
+              <TableHead>
+                 <Button variant="ghost" onClick={() => handleSort('isActive')}>
+                    Paused
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+              </TableHead>
+              <TableHead>
+                 <Button variant="ghost" onClick={() => handleSort('name')}>
+                    Account
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+              </TableHead>
+              <TableHead>
+                 <Button variant="ghost" onClick={() => handleSort('type')}>
+                    Type
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+              </TableHead>
+              <TableHead>
+                 <Button variant="ghost" onClick={() => handleSort('balance')}>
+                    Balance
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+              </TableHead>
               {isEditable && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayAccounts.map(account => {
+            {paginatedAccounts.map(account => {
               const Icon = getIcon(account.type);
               return (
                 <TableRow key={account.id}>
@@ -227,6 +287,27 @@ export function AccountBalances({
             })}
           </TableBody>
         </Table>
+        {isEditable && totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <Button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              variant="outline"
+            >
+              Previous
+            </Button>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              variant="outline"
+            >
+              Next
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

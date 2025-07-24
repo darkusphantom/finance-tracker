@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Trash2 } from 'lucide-react';
@@ -28,12 +28,25 @@ import {
 
 export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: boolean, initialDebts?: any[] }) {
   const [debts, setDebts] = useState(initialDebts);
-
+  const [filter, setFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const itemsPerPage = isEditable ? 15 : 10;
+  
   useEffect(() => {
     setDebts(initialDebts);
   }, [initialDebts]);
 
-  const displayDebts = isEditable ? debts : initialDebts;
+  const filteredDebts = useMemo(() => {
+     return debts.filter(debt => debt.name.toLowerCase().includes(filter.toLowerCase()));
+  }, [debts, filter]);
+
+  const paginatedDebts = useMemo(() => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return filteredDebts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredDebts, page, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredDebts.length / itemsPerPage);
+
 
   const handleInputChange = (id: string, field: string, value: any) => {
     const newDebts = debts.map((debt) => {
@@ -60,8 +73,18 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
           Track your outstanding debts and what others owe you.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {displayDebts.map((debt) => (
+      <CardContent>
+        {isEditable && (
+          <div className="mb-4">
+            <Input 
+              placeholder="Search debts..."
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+          </div>
+        )}
+        <div className="space-y-6">
+        {paginatedDebts.map((debt) => (
           <div key={debt.id}>
             <div className="flex justify-between items-center mb-2">
               {isEditable ? (
@@ -138,6 +161,14 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
             <Progress value={(debt.paid / debt.total) * 100} />
           </div>
         ))}
+        </div>
+        {isEditable && totalPages > 1 && (
+          <div className="flex justify-between items-center mt-6">
+              <Button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} variant="outline">Previous</Button>
+              <span>Page {page} of {totalPages}</span>
+              <Button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} variant="outline">Next</Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
