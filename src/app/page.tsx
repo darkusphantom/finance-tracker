@@ -4,14 +4,17 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { Debts } from '@/components/debts';
 import { MonthlyOverview } from '@/components/monthly-overview';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { getAccounts } from '@/lib/notion';
-import { transformAccountData } from '@/lib/utils';
+import { getAccounts, getDebts } from '@/lib/notion';
+import { transformAccountData, transformDebtData } from '@/lib/utils';
 
 export const revalidate = 0;
 
 export default async function Home() {
   const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
   const accounts = transformAccountData(rawAccounts);
+  
+  const rawDebts = await getDebts(process.env.NOTION_DEBTS_DB!);
+  const debts = transformDebtData(rawDebts);
 
   return (
     <DashboardLayout>
@@ -31,7 +34,7 @@ export default async function Home() {
             <AccountBalances isEditable={false} initialAccounts={accounts} />
           </div>
           <div className="md:col-span-1">
-            <Debts isEditable={false}/>
+            <Debts isEditable={false} initialDebts={debts}/>
           </div>
         </div>
       </main>

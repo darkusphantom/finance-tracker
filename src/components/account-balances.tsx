@@ -101,10 +101,10 @@ export function AccountBalances({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Paused</TableHead>
               <TableHead className="w-[200px]">Account</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Balance</TableHead>
-              <TableHead>Active</TableHead>
               {isEditable && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -113,6 +113,15 @@ export function AccountBalances({
               const Icon = getIcon(account.type);
               return (
                 <TableRow key={account.id}>
+                  <TableCell>
+                    <Checkbox
+                        checked={account.isActive}
+                        onCheckedChange={value =>
+                            isEditable && handleInputChange(account.id, 'isActive', value)
+                        }
+                        disabled={!isEditable}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium flex items-center gap-2">
                     <Icon className="w-4 h-4 text-muted-foreground" />
                     {isEditable ? (
@@ -184,15 +193,6 @@ export function AccountBalances({
                         }).format(account.balance)}
                       </span>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <Checkbox
-                        checked={account.isActive}
-                        onCheckedChange={value =>
-                            isEditable && handleInputChange(account.id, 'isActive', value)
-                        }
-                        disabled={!isEditable}
-                    />
                   </TableCell>
                   {isEditable && (
                     <TableCell className="text-right">

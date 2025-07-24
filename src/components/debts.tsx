@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Trash2 } from 'lucide-react';
@@ -26,35 +26,14 @@ import {
 } from '@/components/ui/alert-dialog';
 
 
-const initialDebts = [
-  {
-    id: '1',
-    name: 'Student Loan',
-    type: 'Debt',
-    total: 25000,
-    paid: 12000,
-    status: 'Paying',
-  },
-  {
-    id: '2',
-    name: 'Car Loan',
-    type: 'Debt',
-    total: 18000,
-    paid: 18000,
-    status: 'Paid Off',
-  },
-  {
-    id: '3',
-    name: 'Mike (Dinner)',
-    type: 'Debtor',
-    total: 45,
-    paid: 0,
-    status: 'Pending',
-  },
-];
-
-export function Debts({ isEditable = true }: { isEditable?: boolean }) {
+export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: boolean, initialDebts?: any[] }) {
   const [debts, setDebts] = useState(initialDebts);
+
+  useEffect(() => {
+    setDebts(initialDebts);
+  }, [initialDebts]);
+
+  const displayDebts = isEditable ? debts : initialDebts;
 
   const handleInputChange = (id: string, field: string, value: any) => {
     const newDebts = debts.map((debt) => {
@@ -82,7 +61,7 @@ export function Debts({ isEditable = true }: { isEditable?: boolean }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {debts.map((debt) => (
+        {displayDebts.map((debt) => (
           <div key={debt.id}>
             <div className="flex justify-between items-center mb-2">
               {isEditable ? (
