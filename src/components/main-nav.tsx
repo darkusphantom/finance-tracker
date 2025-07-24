@@ -12,6 +12,7 @@ import {
   ReceiptText,
   CalendarCheck,
   Calculator,
+  BotMessageSquare,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -24,6 +25,7 @@ export function MainNav() {
     { href: '/transactions', label: 'Transactions', icon: ReceiptText },
     { href: '/budget', label: 'Budget', icon: CalendarCheck },
     { href: '/calculator', label: 'Calculator', icon: Calculator },
+    { href: '/chat', label: 'AI Advisor', icon: BotMessageSquare },
   ];
 
   return (

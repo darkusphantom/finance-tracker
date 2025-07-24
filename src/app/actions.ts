@@ -9,6 +9,10 @@ import {
   type ExtractTransactionFromImageInput,
 } from '@/ai/flows/extract-transaction-from-image';
 import {
+    financialChat,
+    type FinancialChatInput,
+} from '@/ai/flows/financial-chat-flow';
+import {
   addPageToDb,
   deletePage,
   updatePage,
@@ -233,4 +237,27 @@ export async function deleteScheduledPaymentAction(id: string) {
         console.error('Failed to delete scheduled payment in Notion:', error);
         return { error: 'Failed to delete scheduled payment.' };
     }
+}
+
+const financialChatSchema = z.object({
+  message: z.string(),
+  fileDataUri: z.string().nullable(),
+});
+
+export async function chatWithBotAction(input: {
+  message: string;
+  fileDataUri: string | null;
+}) {
+  const parsedInput = financialChatSchema.safeParse(input);
+  if (!parsedInput.success) {
+    return { error: 'Invalid input.' };
+  }
+
+  try {
+    const result = await financialChat(parsedInput.data);
+    return { response: result.response };
+  } catch (error) {
+    console.error('Financial chat failed:', error);
+    return { error: 'Failed to get a response from the AI advisor.' };
+  }
 }
