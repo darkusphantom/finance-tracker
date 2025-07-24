@@ -48,8 +48,7 @@ export function AccountBalances({
   isEditable?: boolean;
   initialAccounts?: any[];
 }) {
-  // Use initialAccounts directly if not editable, otherwise use state for editing.
-  const [accounts, setAccounts] = useState(initialAccounts);
+  const [accounts, setAccounts] = useState(() => initialAccounts);
   const displayAccounts = isEditable ? accounts : initialAccounts;
 
   const handleInputChange = (id: string, field: string, value: string) => {

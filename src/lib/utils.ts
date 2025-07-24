@@ -27,15 +27,16 @@ const getProperty = (prop: any) => {
 };
 
 export const transformAccountData = (notionPages: any[]): any[] => {
-    return notionPages.map(page => {
-        const props = (page as any).properties;
-        return {
-            id: page.id,
-            name: getProperty(props.Name) || 'N/A',
-            type: getProperty(props['Account Type']) || 'Other',
-            balance: getProperty(props['Balance Amount']) || 0,
-        };
-    });
+  if (!notionPages) return [];
+  return notionPages.map(page => {
+      const props = (page as any).properties;
+      return {
+          id: page.id,
+          name: getProperty(props.Name) || 'N/A',
+          type: getProperty(props['Account Type']) || 'Other',
+          balance: getProperty(props['Balance Amount']) || 0,
+      };
+  });
 };
 
 export const transformTransactionData = (
