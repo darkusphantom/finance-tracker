@@ -13,7 +13,6 @@ export default function ChatPage() {
             AI Financial Advisor
           </h1>
         </div>
-         <AddTransactionSheet />
       </header>
       <main>
         <FinancialChatbot />

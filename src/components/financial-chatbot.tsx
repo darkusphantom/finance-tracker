@@ -107,7 +107,7 @@ export function FinancialChatbot() {
     }
 
     const newMessages = [...messages, userMessage, { role: 'bot', content: '' }];
-    setMessages(newMessages);
+    setMessages(newMessages as any);
     setIsLoading(true);
     setInput('');
     setFile(null);
@@ -166,7 +166,7 @@ export function FinancialChatbot() {
                 const finalMessages = [...newMessages.slice(0, -1), { role: 'bot', content: responseText }];
                 localStorage.setItem('chatHistory', JSON.stringify(finalMessages));
             }
-        }, 20); // Adjust typing speed here
+        }, 13); // Adjust typing speed here
     } else {
         // Handle case where there's no response and no error
          setMessages(prev => prev.slice(0,-1));
@@ -294,3 +294,5 @@ export function FinancialChatbot() {
     </Card>
   );
 }
+
+    
