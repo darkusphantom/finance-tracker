@@ -18,10 +18,10 @@ import {
 } from '@/components/ui/tabs';
 import { TrendingUp } from 'lucide-react';
 
-const formatCurrency = (value: number) => {
+const formatCurrency = (value: number, currency = 'USD') => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
   }).format(value);
 };
 
@@ -77,33 +77,93 @@ function Rule503020Calculator() {
 }
 
 function Rule9010Calculator() {
+    const [income, setIncome] = useState<number>(0);
+    const spending = income * 0.9;
+    const savings = income * 0.1;
+
     return (
         <Card>
-        <CardHeader>
-            <CardTitle>90/10 Rule Calculator</CardTitle>
-            <CardDescription>
-            Coming soon! A calculator for the 90/10 savings rule.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <p className="text-muted-foreground">This feature is under construction.</p>
-        </CardContent>
+            <CardHeader>
+                <CardTitle>90/10 Rule Calculator</CardTitle>
+                <CardDescription>
+                Live on 90% of your income and save the other 10%. A simple rule for building wealth.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                 <div className="space-y-2">
+                    <Label htmlFor="income-9010">Monthly After-Tax Income</Label>
+                    <Input
+                        id="income-9010"
+                        type="number"
+                        placeholder="Enter your monthly income"
+                        value={income || ''}
+                        onChange={(e) => setIncome(parseFloat(e.target.value) || 0)}
+                    />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
+                    <div className="flex flex-col gap-2 p-4 border rounded-lg">
+                        <p className="text-sm text-muted-foreground">Spending (90%)</p>
+                        <p className="text-2xl font-bold text-primary">
+                        {formatCurrency(spending)}
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-2 p-4 border rounded-lg">
+                        <p className="text-sm text-muted-foreground">Savings (10%)</p>
+                        <p className="text-2xl font-bold text-green-500">
+                        {formatCurrency(savings)}
+                        </p>
+                    </div>
+                </div>
+            </CardContent>
         </Card>
     );
 }
 
 function BudgetingCalculator() {
+    const [usdAmount, setUsdAmount] = useState<number>(0);
+    const [exchangeRate, setExchangeRate] = useState<number>(0);
+
+    const vesAmount = usdAmount * exchangeRate;
+
     return (
         <Card>
-        <CardHeader>
-            <CardTitle>Budget Calculator</CardTitle>
-            <CardDescription>
-            Coming soon! A tool to create and manage a detailed budget.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <p className="text-muted-foreground">This feature is under construction.</p>
-        </CardContent>
+            <CardHeader>
+                <CardTitle>Currency Converter</CardTitle>
+                <CardDescription>
+                Convert from US Dollars (USD) to Venezuelan Bolívar (VES).
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                        <Label htmlFor="usd-amount">Amount (USD)</Label>
+                        <Input
+                            id="usd-amount"
+                            type="number"
+                            placeholder="Enter amount in USD"
+                            value={usdAmount || ''}
+                            onChange={(e) => setUsdAmount(parseFloat(e.target.value) || 0)}
+                        />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="exchange-rate">Exchange Rate (USD to VES)</Label>
+                        <Input
+                            id="exchange-rate"
+                            type="number"
+                            placeholder="Enter current exchange rate"
+                            value={exchangeRate || ''}
+                            onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 0)}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex flex-col items-center gap-2 p-4 border rounded-lg bg-secondary">
+                    <p className="text-sm text-muted-foreground">Converted Amount</p>
+                    <p className="text-3xl font-bold text-primary">
+                        {new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(vesAmount)}
+                    </p>
+                </div>
+            </CardContent>
         </Card>
     );
 }
