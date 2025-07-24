@@ -5,7 +5,13 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Wallet, PiggyBank, ReceiptText } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Wallet,
+  PiggyBank,
+  ReceiptText,
+  CalendarCheck,
+} from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 export function MainNav() {
@@ -15,11 +21,12 @@ export function MainNav() {
     { href: '/accounts', label: 'Accounts', icon: Wallet },
     { href: '/debts', label: 'Debts', icon: PiggyBank },
     { href: '/transactions', label: 'Transactions', icon: ReceiptText },
+    { href: '/budget', label: 'Budget', icon: CalendarCheck },
   ];
 
   return (
     <SidebarMenu>
-      {menuItems.map((item) => (
+      {menuItems.map(item => (
         <SidebarMenuItem key={item.label}>
           <SidebarMenuButton
             href={item.href}
