@@ -56,7 +56,7 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
     .filter(t => isSameDay(parseISO(t.date), selectedDay))
     .sort((a, b) => b.amount - a.amount);
 
-  const DayWithIndicator = ({ day, ...props }: any) => {
+  const DayWithIndicator = ({ day, displayMonth, ...props }: any) => {
     if (!isValid(day)) {
         return <div {...props}></div>
     }
