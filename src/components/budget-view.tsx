@@ -56,9 +56,9 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
     .filter(t => isSameDay(parseISO(t.date), selectedDay))
     .sort((a, b) => b.amount - a.amount);
 
-  const DayWithIndicator = ({ day, displayMonth, ...props }: any) => {
+  const DayWithIndicator = ({ day }: { day: Date }) => {
     if (!isValid(day)) {
-        return <div {...props}></div>
+        return <div></div>
     }
 
     const transactionsOnDay = transactions.filter(t =>
@@ -69,7 +69,6 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
 
     return (
       <div
-        {...props}
         className="relative flex items-center justify-center h-full"
       >
         <span>{format(day, 'd')}</span>
