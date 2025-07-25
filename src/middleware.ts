@@ -5,6 +5,9 @@ import { sessionOptions, type SessionData } from '@/lib/session';
 
 export const middleware = async (req: NextRequest) => {
   const res = NextResponse.next();
+  // La protección de rutas está desactivada temporalmente.
+  // Para activarla, descomenta las siguientes líneas.
+  /*
   const session = await getIronSession<SessionData>(req, res, sessionOptions);
   
   const { isLoggedIn } = session;
@@ -23,7 +26,7 @@ export const middleware = async (req: NextRequest) => {
     }
     return NextResponse.redirect(new URL('/login', req.url));
   }
-  
+  */
   return res;
 };
 
