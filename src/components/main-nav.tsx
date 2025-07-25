@@ -19,7 +19,7 @@ import { usePathname } from 'next/navigation';
 export function MainNav() {
   const pathname = usePathname();
   const menuItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/accounts', label: 'Accounts', icon: Wallet },
     { href: '/debts', label: 'Debts', icon: PiggyBank },
     { href: '/transactions', label: 'Transactions', icon: ReceiptText },

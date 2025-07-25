@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
     ]
   },
   env: {
+    LOGIN_USER: process.env.LOGIN_USER,
+    LOGIN_PASSWORD: process.env.LOGIN_PASSWORD,
+    SECRET_COOKIE_PASSWORD: process.env.SECRET_COOKIE_PASSWORD,
     NOTION_TOKEN: process.env.NOTION_TOKEN,
     NOTION_TRANSACTIONS_DB: process.env.NOTION_TRANSACTIONS_DB,
     NOTION_INCOME_DB: process.env.NOTION_INCOME_DB,

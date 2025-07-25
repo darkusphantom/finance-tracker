@@ -20,6 +20,33 @@ import {
 } from '@/lib/notion';
 import { z } from 'zod';
 import { format } from 'date-fns';
+import { getIronSession } from 'iron-session';
+import { sessionOptions, type SessionData } from '@/lib/session';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+
+const loginSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+export async function loginAction(values: unknown) {
+    const parsed = loginSchema.safeParse(values);
+    if (!parsed.success) {
+        return { error: 'Invalid input.' };
+    }
+
+    const { username, password } = parsed.data;
+
+    if (username === process.env.LOGIN_USER && password === process.env.LOGIN_PASSWORD) {
+        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+        session.isLoggedIn = true;
+        await session.save();
+        redirect('/dashboard');
+    } else {
+        return { error: 'Invalid credentials.' };
+    }
+}
 
 const suggestCategorySchema = z.object({
   description: z.string().min(1, 'Description is required.'),
