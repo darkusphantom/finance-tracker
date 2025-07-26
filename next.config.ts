@@ -42,6 +42,9 @@ const nextConfig: NextConfig = {
     NOTION_ACCOUNTS_DB: process.env.NOTION_ACCOUNTS_DB,
     NOTION_DEBTS_DB: process.env.NOTION_DEBTS_DB,
     NOTION_BUDGET_DB: process.env.NOTION_BUDGET_DB,
+    AIRTABLE_API_KEY: process.env.AIRTABLE_API_KEY,
+    AIRTABLE_BASE_ID: process.env.AIRTABLE_BASE_ID,
+    AIRTABLE_USERS_TABLE_ID: process.env.AIRTABLE_USERS_TABLE_ID,
   }
 };
 

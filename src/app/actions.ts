@@ -22,6 +22,7 @@ import {
   updatePage,
   findOrCreateMonthPage,
 } from '@/lib/notion';
+import { findUserByUsername } from '@/lib/airtable';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { getIronSession } from 'iron-session';
@@ -41,17 +42,20 @@ export async function loginAction(values: unknown) {
   }
 
   const { username, password } = parsed.data;
+  
+  try {
+    const user = await findUserByUsername(username);
 
-  if (
-    username === process.env.LOGIN_USER &&
-    password === process.env.LOGIN_PASSWORD
-  ) {
-    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
-    session.isLoggedIn = true;
-    await session.save();
-    redirect('/dashboard');
-  } else {
-    return { error: 'Invalid credentials.' };
+    if (user && user.password === password) {
+        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+        session.isLoggedIn = true;
+        await session.save();
+        redirect('/dashboard');
+    } else {
+        return { error: 'Invalid credentials.' };
+    }
+  } catch (error: any) {
+    return { error: error.message || 'An unexpected error occurred during login.' };
   }
 }
 
