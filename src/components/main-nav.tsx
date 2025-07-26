@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   Calculator,
   BotMessageSquare,
+  ShieldCheck,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -26,6 +27,7 @@ export function MainNav() {
     { href: '/budget', label: 'Budget', icon: CalendarCheck },
     { href: '/calculator', label: 'Calculator', icon: Calculator },
     { href: '/chat', label: 'AI Advisor', icon: BotMessageSquare },
+    { href: '/risk-analysis', label: 'Risk Analysis', icon: ShieldCheck },
   ];
 
   return (

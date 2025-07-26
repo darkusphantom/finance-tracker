@@ -9,9 +9,13 @@ import {
   type ExtractTransactionFromImageInput,
 } from '@/ai/flows/extract-transaction-from-image';
 import {
-    financialChat,
-    type FinancialChatInput,
+  financialChat,
+  type FinancialChatInput,
 } from '@/ai/flows/financial-chat-flow';
+import {
+  assessRiskProfile,
+  type AssessRiskProfileInput,
+} from '@/ai/flows/risk-profile-flow';
 import {
   addPageToDb,
   deletePage,
@@ -31,21 +35,24 @@ const loginSchema = z.object({
 });
 
 export async function loginAction(values: unknown) {
-    const parsed = loginSchema.safeParse(values);
-    if (!parsed.success) {
-        return { error: 'Invalid input.' };
-    }
+  const parsed = loginSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
 
-    const { username, password } = parsed.data;
+  const { username, password } = parsed.data;
 
-    if (username === process.env.LOGIN_USER && password === process.env.LOGIN_PASSWORD) {
-        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
-        session.isLoggedIn = true;
-        await session.save();
-        redirect('/dashboard');
-    } else {
-        return { error: 'Invalid credentials.' };
-    }
+  if (
+    username === process.env.LOGIN_USER &&
+    password === process.env.LOGIN_PASSWORD
+  ) {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    session.isLoggedIn = true;
+    await session.save();
+    redirect('/dashboard');
+  } else {
+    return { error: 'Invalid credentials.' };
+  }
 }
 
 const suggestCategorySchema = z.object({
@@ -115,9 +122,10 @@ export async function addTransactionAction(values: unknown) {
 
     const transactionAmount = Math.abs(amount);
 
-    const databaseId = type === 'income' 
-      ? process.env.NOTION_INCOME_DB!
-      : process.env.NOTION_TRANSACTIONS_DB!;
+    const databaseId =
+      type === 'income'
+        ? process.env.NOTION_INCOME_DB!
+        : process.env.NOTION_TRANSACTIONS_DB!;
 
     await addPageToDb(databaseId, {
       Source: { title: [{ text: { content: description } }] },
@@ -185,35 +193,41 @@ export async function deleteTransactionAction(id: string) {
 }
 
 export async function addAccountAction() {
-    try {
-        const notionProperties = {
-            'Name': { title: [{ text: { content: 'New Account' } }] },
-            'Account Type': { select: { name: 'Corriente' } },
-            'Balance Amount': { number: 0 },
-            'Is Active': { checkbox: true },
-        };
-        const newPage = await addPageToDb(process.env.NOTION_ACCOUNTS_DB!, notionProperties);
-        return { success: true, newPageId: newPage.id };
-    } catch (error) {
-        console.error('Failed to add account to Notion:', error);
-        return { error: 'Failed to save account.' };
-    }
+  try {
+    const notionProperties = {
+      Name: { title: [{ text: { content: 'New Account' } }] },
+      'Account Type': { select: { name: 'Corriente' } },
+      'Balance Amount': { number: 0 },
+      'Is Active': { checkbox: true },
+    };
+    const newPage = await addPageToDb(
+      process.env.NOTION_ACCOUNTS_DB!,
+      notionProperties
+    );
+    return { success: true, newPageId: newPage.id };
+  } catch (error) {
+    console.error('Failed to add account to Notion:', error);
+    return { error: 'Failed to save account.' };
+  }
 }
 
 export async function addDebtAction() {
-    try {
-        const notionProperties = {
-            'Title': { title: [{ text: { content: 'New Debt' } }] },
-            'Type': { select: { name: 'Deuda' } },
-            'Debt Amount': { number: 0 },
-            'Status': { select: { name: 'Pendiente' } },
-        };
-        const newPage = await addPageToDb(process.env.NOTION_DEBTS_DB!, notionProperties);
-        return { success: true, newPageId: newPage.id };
-    } catch (error) {
-        console.error('Failed to add debt to Notion:', error);
-        return { error: 'Failed to save debt.' };
-    }
+  try {
+    const notionProperties = {
+      Title: { title: [{ text: { content: 'New Debt' } }] },
+      Type: { select: { name: 'Deuda' } },
+      'Debt Amount': { number: 0 },
+      Status: { select: { name: 'Pendiente' } },
+    };
+    const newPage = await addPageToDb(
+      process.env.NOTION_DEBTS_DB!,
+      notionProperties
+    );
+    return { success: true, newPageId: newPage.id };
+  } catch (error) {
+    console.error('Failed to add debt to Notion:', error);
+    return { error: 'Failed to save debt.' };
+  }
 }
 
 const updateDebtSchema = z.object({
@@ -223,65 +237,71 @@ const updateDebtSchema = z.object({
 });
 
 export async function updateDebtAction(values: unknown) {
-    const parsed = updateDebtSchema.safeParse(values);
-    if (!parsed.success) {
-        return { error: 'Invalid input.' };
-    }
+  const parsed = updateDebtSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
 
-    try {
-        const { id, field, value } = parsed.data;
-        let notionProperty;
-        switch (field) {
-            case 'name':
-                notionProperty = { 'Title': { title: [{ text: { content: value } }] } };
-                break;
-            case 'total':
-                notionProperty = { 'Debt Amount': { number: parseFloat(value) || 0 } };
-                break;
-            case 'type':
-                 notionProperty = { 'Type': { select: { name: value === 'Debt' ? 'Deuda' : 'Deudor' } } };
-                break;
-            default:
-                return { error: 'Invalid field.' };
-        }
-        await updatePage(id, notionProperty);
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to update debt in Notion:', error);
-        return { error: 'Failed to update debt.' };
+  try {
+    const { id, field, value } = parsed.data;
+    let notionProperty;
+    switch (field) {
+      case 'name':
+        notionProperty = { Title: { title: [{ text: { content: value } }] } };
+        break;
+      case 'total':
+        notionProperty = { 'Debt Amount': { number: parseFloat(value) || 0 } };
+        break;
+      case 'type':
+        notionProperty = {
+          Type: { select: { name: value === 'Debt' ? 'Deuda' : 'Deudor' } },
+        };
+        break;
+      default:
+        return { error: 'Invalid field.' };
     }
+    await updatePage(id, notionProperty);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update debt in Notion:', error);
+    return { error: 'Failed to update debt.' };
+  }
 }
 
-
 const scheduledPaymentSchema = z.object({
-    name: z.string().min(1, 'Name is required'),
-    day: z.coerce.number().min(1).max(31),
-    amount: z.coerce.number(),
-    type: z.enum(['fixed', 'variable']),
-    category: z.enum(['income', 'expense']),
+  name: z.string().min(1, 'Name is required'),
+  day: z.coerce.number().min(1).max(31),
+  amount: z.coerce.number(),
+  type: z.enum(['fixed', 'variable']),
+  category: z.enum(['income', 'expense']),
 });
 
-export async function addScheduledPaymentAction(values: z.infer<typeof scheduledPaymentSchema>) {
-    const parsed = scheduledPaymentSchema.safeParse(values);
-    if (!parsed.success) {
-        return { error: 'Invalid input.', details: parsed.error.format() };
-    }
+export async function addScheduledPaymentAction(
+  values: z.infer<typeof scheduledPaymentSchema>
+) {
+  const parsed = scheduledPaymentSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.', details: parsed.error.format() };
+  }
 
-    try {
-        const { name, day, amount, type, category } = parsed.data;
-        const notionProperties = {
-            'Name': { title: [{ text: { content: name } }] },
-            'Month Day': { number: day },
-            'Budget Amount': { number: amount },
-            'Type': { select: { name: type === 'fixed' ? 'Fijo' : 'Variable' } },
-            'Category': { select: { name: category === 'income' ? 'Ingreso' : 'Pago' } },
-        };
-        const newPage = await addPageToDb(process.env.NOTION_BUDGET_DB!, notionProperties);
-        return { success: true, newPageId: newPage.id };
-    } catch (error) {
-        console.error('Failed to add scheduled payment to Notion:', error);
-        return { error: 'Failed to save scheduled payment.' };
-    }
+  try {
+    const { name, day, amount, type, category } = parsed.data;
+    const notionProperties = {
+      Name: { title: [{ text: { content: name } }] },
+      'Month Day': { number: day },
+      'Budget Amount': { number: amount },
+      Type: { select: { name: type === 'fixed' ? 'Fijo' : 'Variable' } },
+      Category: { select: { name: category === 'income' ? 'Ingreso' : 'Pago' } },
+    };
+    const newPage = await addPageToDb(
+      process.env.NOTION_BUDGET_DB!,
+      notionProperties
+    );
+    return { success: true, newPageId: newPage.id };
+  } catch (error) {
+    console.error('Failed to add scheduled payment to Notion:', error);
+    return { error: 'Failed to save scheduled payment.' };
+  }
 }
 
 const updateScheduledPaymentSchema = z.object({
@@ -291,47 +311,48 @@ const updateScheduledPaymentSchema = z.object({
 });
 
 export async function updateScheduledPaymentAction(values: unknown) {
-    const parsed = updateScheduledPaymentSchema.safeParse(values);
-    if (!parsed.success) {
-        return { error: 'Invalid input.' };
-    }
+  const parsed = updateScheduledPaymentSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
 
-    try {
-        const { id, field, value } = parsed.data;
-        let notionProperty;
-        switch (field) {
-            case 'name':
-                notionProperty = { 'Name': { title: [{ text: { content: value } }] } };
-                break;
-            case 'day':
-                notionProperty = { 'Month Day': { number: parseInt(value, 10) || 1 } };
-                break;
-            case 'amount':
-                notionProperty = { 'Budget Amount': { number: parseFloat(value) || 0 } };
-                break;
-            case 'type':
-                notionProperty = { 'Type': { select: { name: value === 'fixed' ? 'Fijo' : 'Variable' } } };
-                break;
-            default:
-                return { error: 'Invalid field.' };
-        }
-        await updatePage(id, notionProperty);
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to update scheduled payment in Notion:', error);
-        return { error: 'Failed to update scheduled payment.' };
+  try {
+    const { id, field, value } = parsed.data;
+    let notionProperty;
+    switch (field) {
+      case 'name':
+        notionProperty = { Name: { title: [{ text: { content: value } }] } };
+        break;
+      case 'day':
+        notionProperty = { 'Month Day': { number: parseInt(value, 10) || 1 } };
+        break;
+      case 'amount':
+        notionProperty = { 'Budget Amount': { number: parseFloat(value) || 0 } };
+        break;
+      case 'type':
+        notionProperty = {
+          Type: { select: { name: value === 'fixed' ? 'Fijo' : 'Variable' } },
+        };
+        break;
+      default:
+        return { error: 'Invalid field.' };
     }
+    await updatePage(id, notionProperty);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update scheduled payment in Notion:', error);
+    return { error: 'Failed to update scheduled payment.' };
+  }
 }
 
-
 export async function deleteScheduledPaymentAction(id: string) {
-    try {
-        await deletePage(id);
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to delete scheduled payment in Notion:', error);
-        return { error: 'Failed to delete scheduled payment.' };
-    }
+  try {
+    await deletePage(id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to delete scheduled payment in Notion:', error);
+    return { error: 'Failed to delete scheduled payment.' };
+  }
 }
 
 const financialChatSchema = z.object({
@@ -354,5 +375,29 @@ export async function chatWithBotAction(input: {
   } catch (error) {
     console.error('Financial chat failed:', error);
     return { error: 'Failed to get a response from the AI advisor.' };
+  }
+}
+
+const riskProfileSchema = z.object({
+  jobStability: z.enum(['stable', 'moderate', 'unstable']),
+  healthStatus: z.enum(['good', 'fair', 'poor']),
+  emergencyFund: z.coerce.number().positive(),
+  monthlyExpenses: z.coerce.number().positive(),
+});
+
+export async function getRiskProfileAnalysisAction(
+  input: AssessRiskProfileInput
+) {
+  const parsed = riskProfileSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: 'Invalid input.', details: parsed.error.format() };
+  }
+
+  try {
+    const result = await assessRiskProfile(parsed.data);
+    return { data: result };
+  } catch (error) {
+    console.error('AI risk profile analysis failed:', error);
+    return { error: 'Failed to generate risk profile analysis.' };
   }
 }
