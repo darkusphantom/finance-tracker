@@ -36,7 +36,6 @@ export default async function BudgetPage() {
             Budget
           </h1>
         </div>
-        <AddTransactionSheet />
       </header>
       <main className="space-y-6">
         <BudgetView transactions={transactions} />

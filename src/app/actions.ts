@@ -184,6 +184,38 @@ export async function deleteTransactionAction(id: string) {
   }
 }
 
+export async function addAccountAction() {
+    try {
+        const notionProperties = {
+            'Name': { title: [{ text: { content: 'New Account' } }] },
+            'Account Type': { select: { name: 'Corriente' } },
+            'Balance Amount': { number: 0 },
+            'Is Active': { checkbox: true },
+        };
+        const newPage = await addPageToDb(process.env.NOTION_ACCOUNTS_DB!, notionProperties);
+        return { success: true, newPageId: newPage.id };
+    } catch (error) {
+        console.error('Failed to add account to Notion:', error);
+        return { error: 'Failed to save account.' };
+    }
+}
+
+export async function addDebtAction() {
+    try {
+        const notionProperties = {
+            'Title': { title: [{ text: { content: 'New Debt' } }] },
+            'Type': { select: { name: 'Deuda' } },
+            'Debt Amount': { number: 0 },
+            'Status': { select: { name: 'Pendiente' } },
+        };
+        const newPage = await addPageToDb(process.env.NOTION_DEBTS_DB!, notionProperties);
+        return { success: true, newPageId: newPage.id };
+    } catch (error) {
+        console.error('Failed to add debt to Notion:', error);
+        return { error: 'Failed to save debt.' };
+    }
+}
+
 
 const scheduledPaymentSchema = z.object({
     name: z.string().min(1, 'Name is required'),

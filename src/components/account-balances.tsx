@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Landmark, Trash2, Wallet, ArrowUpDown } from 'lucide-react';
+import { Landmark, Trash2, Wallet, ArrowUpDown, PlusCircle, Loader2 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
@@ -39,6 +39,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from './ui/checkbox';
+import { addAccountAction } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 const accountTypes = ['Corriente', 'Ahorro', 'Fisico', 'Credit', 'Investment'];
 
@@ -53,7 +56,10 @@ export function AccountBalances({
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState({ key: 'name', order: 'asc' });
   const [page, setPage] = useState(1);
+  const [isAdding, setIsAdding] = useState(false);
   const itemsPerPage = isEditable ? 15 : 10;
+  const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     setAccounts([...initialAccounts]);
@@ -110,6 +116,26 @@ export function AccountBalances({
     setAccounts(newAccounts);
   };
 
+  const handleAddNewAccount = async () => {
+    setIsAdding(true);
+    const result = await addAccountAction();
+    if (result.success) {
+      toast({
+        title: 'Account Added',
+        description: 'The new account has been created.',
+      });
+      router.refresh();
+    } else {
+      toast({
+        title: 'Failed to Add',
+        description: result.error || 'Could not save the new account.',
+        variant: 'destructive',
+      });
+    }
+    setIsAdding(false);
+  };
+
+
   const deleteRow = (id: string) => {
     setAccounts(accounts.filter(account => account.id !== id));
   };
@@ -129,11 +155,19 @@ export function AccountBalances({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Account Balances</CardTitle>
-        <CardDescription>
-          A live look at your connected account balances.
-        </CardDescription>
+      <CardHeader className='flex-row justify-between items-center'>
+        <div>
+            <CardTitle>Account Balances</CardTitle>
+            <CardDescription>
+            A live look at your connected account balances.
+            </CardDescription>
+        </div>
+        {isEditable && (
+            <Button onClick={handleAddNewAccount} disabled={isAdding}>
+                {isAdding ? <Loader2 className='animate-spin' /> : <PlusCircle />}
+                Add Account
+            </Button>
+        )}
       </CardHeader>
       <CardContent>
         {isEditable && (

@@ -37,7 +37,6 @@ export default async function DashboardPage() {
             Dashboard
           </h1>
         </div>
-        <AddTransactionSheet />
       </header>
       <main className="space-y-6">
         <FinancialChart summary={financialSummary} />

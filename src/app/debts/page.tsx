@@ -20,7 +20,6 @@ export default async function DebtsPage() {
             Debts
           </h1>
         </div>
-        <AddTransactionSheet />
       </header>
       <main>
         <Debts initialDebts={debts}/>

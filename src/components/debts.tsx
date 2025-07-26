@@ -12,7 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { useState, useEffect, useMemo } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, PlusCircle, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,13 +24,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-
+import { addDebtAction } from '@/app/actions';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: boolean, initialDebts?: any[] }) {
   const [debts, setDebts] = useState(initialDebts);
   const [filter, setFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [isAdding, setIsAdding] = useState(false);
   const itemsPerPage = isEditable ? 15 : 10;
+  const router = useRouter();
+  const { toast } = useToast();
   
   useEffect(() => {
     setDebts(initialDebts);
@@ -66,6 +71,26 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
     });
     setDebts(newDebts);
   };
+  
+  const handleAddNewDebt = async () => {
+    setIsAdding(true);
+    const result = await addDebtAction();
+    if (result.success) {
+      toast({
+        title: 'Debt Added',
+        description: 'The new debt has been created.',
+      });
+      router.refresh();
+    } else {
+      toast({
+        title: 'Failed to Add',
+        description: result.error || 'Could not save the new debt.',
+        variant: 'destructive',
+      });
+    }
+    setIsAdding(false);
+  };
+
 
   const deleteRow = (id: string) => {
     setDebts(debts.filter((debt) => debt.id !== id));
@@ -73,11 +98,19 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Debts & Debtors</CardTitle>
-        <CardDescription>
-          Track your outstanding debts and what others owe you.
-        </CardDescription>
+      <CardHeader className='flex-row justify-between items-center'>
+        <div>
+            <CardTitle>Debts & Debtors</CardTitle>
+            <CardDescription>
+            Track your outstanding debts and what others owe you.
+            </CardDescription>
+        </div>
+         {isEditable && (
+            <Button onClick={handleAddNewDebt} disabled={isAdding}>
+                {isAdding ? <Loader2 className='animate-spin' /> : <PlusCircle />}
+                Add Debt
+            </Button>
+        )}
       </CardHeader>
       <CardContent>
         {isEditable && (
