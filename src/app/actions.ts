@@ -21,13 +21,14 @@ import {
   updatePage,
   findOrCreateMonthPage,
 } from '@/lib/notion';
-import { findUserByUsernameOrEmail } from '@/lib/airtable';
+import { findUserByUsernameOrEmail, createUser } from '@/lib/airtable';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -35,29 +36,66 @@ const loginSchema = z.object({
 });
 
 export async function loginAction(values: unknown) {
-  const parsed = loginSchema.safeParse(values);
-  if (!parsed.success) {
-    return { error: 'Invalid input.' };
-  }
-
-  const { loginIdentifier, password } = parsed.data;
-  
-  let user;
   try {
-    user = await findUserByUsernameOrEmail(loginIdentifier);
-  } catch (error: any) {
-    return { error: error.message || 'An unexpected error occurred during login.' };
-  }
+    const parsed = loginSchema.safeParse(values);
+    if (!parsed.success) {
+      return { error: 'Invalid input.' };
+    }
 
-  if (user && user.Password === password) {
+    const { loginIdentifier, password } = parsed.data;
+
+    const user = await findUserByUsernameOrEmail(loginIdentifier);
+
+    if (user && user.Password === password) {
       const session = await getIronSession<SessionData>(cookies(), sessionOptions);
       session.isLoggedIn = true;
       await session.save();
       return redirect('/dashboard');
-  } else {
+    } else {
       return { error: 'Invalid credentials.' };
+    }
+  } catch (error: any) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+    return { error: error.message || 'An unexpected error occurred during login.' };
   }
 }
+
+const registerSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  username: z.string().min(3, 'Username must be at least 3 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+export async function registerAction(values: unknown) {
+  const parsed = registerSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
+  const { email, username, password } = parsed.data;
+  
+  try {
+    // Check if user or email already exists
+    const existingUser = await findUserByUsernameOrEmail(username);
+    if (existingUser) {
+        return { error: 'Username already taken.' };
+    }
+    const existingEmail = await findUserByUsernameOrEmail(email);
+    if (existingEmail) {
+        return { error: 'Email already registered.' };
+    }
+
+    // Create new user in Airtable
+    await createUser({ email, username, password });
+
+  } catch (error: any) {
+    return { error: error.message || 'An unexpected error occurred during registration.' };
+  }
+  // Redirect to login after successful registration
+  return redirect('/login?registered=true');
+}
+
 
 const suggestCategorySchema = z.object({
   description: z.string().min(1, 'Description is required.'),
