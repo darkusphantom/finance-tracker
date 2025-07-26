@@ -35,7 +35,6 @@ const loginSchema = z.object({
 });
 
 export async function loginAction(values: unknown) {
-  try {
     const parsed = loginSchema.safeParse(values);
     if (!parsed.success) {
       return { error: 'Invalid input.' };
@@ -43,22 +42,22 @@ export async function loginAction(values: unknown) {
 
     const { loginIdentifier, password } = parsed.data;
 
-    const user = await findUserByUsernameOrEmail(loginIdentifier);
+    try {
+        const user = await findUserByUsernameOrEmail(loginIdentifier);
 
-    if (user && user.Password === password) {
-      const session = await getIronSession<SessionData>(cookies(), sessionOptions);
-      session.isLoggedIn = true;
-      await session.save();
-      redirect('/dashboard');
-    } else {
-      return { error: 'Invalid credentials.' };
+        if (!user || user.Password !== password) {
+          return { error: 'Invalid credentials.' };
+        }
+
+        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+        session.isLoggedIn = true;
+        await session.save();
+
+    } catch (error: any) {
+        return { error: error.message || 'An unexpected error occurred during login.' };
     }
-  } catch (error: any) {
-    if (isRedirectError(error)) {
-      throw error;
-    }
-    return { error: error.message || 'An unexpected error occurred during login.' };
-  }
+
+    redirect('/dashboard');
 }
 
 const registerSchema = z.object({
@@ -89,9 +88,6 @@ export async function registerAction(values: unknown) {
     await createUser({ email, username, password });
 
   } catch (error: any) {
-    if (isRedirectError(error)) {
-        throw error;
-    }
     return { error: error.message || 'An unexpected error occurred during registration.' };
   }
   // Redirect to login after successful registration
@@ -445,3 +441,5 @@ export async function getRiskProfileAnalysisAction(
     return { error: 'Failed to generate risk profile analysis.' };
   }
 }
+
+    
