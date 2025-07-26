@@ -5,6 +5,7 @@ export interface SessionData {
   userId?: string;
   username?: string;
   email?: string;
+<<<<<<< HEAD
   notionToken?: string;
   notionDatabases?: {
     transactions: string;
@@ -14,6 +15,8 @@ export interface SessionData {
     debts: string;
     budget: string;
   };
+=======
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
 }
 
 export const sessionOptions: IronSessionOptions = {

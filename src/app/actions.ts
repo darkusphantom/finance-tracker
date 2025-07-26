@@ -28,7 +28,10 @@ import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+<<<<<<< HEAD
 import { isRedirectError } from 'next/dist/client/components/navigation';
+=======
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -59,6 +62,7 @@ export async function loginAction(values: unknown) {
     session.userId = user.id;
     session.username = user.Username as string;
     session.email = user.Email as string;
+<<<<<<< HEAD
     session.notionToken = user.NOTION_TOKEN as string;
     session.notionDatabases = {
         transactions: user.NOTION_TRANSACTIONS_DB as string,
@@ -68,6 +72,8 @@ export async function loginAction(values: unknown) {
         debts: user.NOTION_DEBTS_DB as string,
         budget: user.NOTION_BUDGET_DB as string,
     };
+=======
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
     await session.save();
 
     redirect('/dashboard');
@@ -112,9 +118,16 @@ export async function logoutAction() {
     redirect('/login');
 }
 
+<<<<<<< HEAD
 const updateUserSchema = z.object({
     username: z.string().min(3, 'Username must be at least 3 characters'),
     email: z.string().email('Invalid email address'),
+=======
+const updateUserSettingsSchema = z.object({
+    username: z.string().min(3, 'Username must be at least 3 characters').optional(),
+    email: z.string().email('Invalid email address').optional(),
+    password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
 });
 
 export async function updateUserAction(values: unknown) {
@@ -123,16 +136,29 @@ export async function updateUserAction(values: unknown) {
         return { error: 'You must be logged in to update your settings.' };
     }
 
+<<<<<<< HEAD
     const parsed = updateUserSchema.safeParse(values);
+=======
+    const parsed = updateUserSettingsSchema.safeParse(values);
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
     if (!parsed.success) {
         return { error: 'Invalid input.' };
     }
 
+<<<<<<< HEAD
     const { username, email } = parsed.data;
     const fieldsToUpdate: { Username?: string; Email?: string; } = {};
 
     if (username) fieldsToUpdate.Username = username;
     if (email) fieldsToUpdate.Email = email;
+=======
+    const { username, email, password } = parsed.data;
+    const fieldsToUpdate: { Username?: string; Email?: string; Password?: string } = {};
+
+    if (username) fieldsToUpdate.Username = username;
+    if (email) fieldsToUpdate.Email = email;
+    if (password) fieldsToUpdate.Password = password;
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
 
     if (Object.keys(fieldsToUpdate).length === 0) {
         return { success: true, message: 'No changes were made.' };
@@ -141,10 +167,15 @@ export async function updateUserAction(values: unknown) {
     try {
         await updateUserAirtable(session.userId, fieldsToUpdate);
         
+<<<<<<< HEAD
+=======
+        // Update session if needed
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
         if (username) session.username = username;
         if (email) session.email = email;
         await session.save();
         
+<<<<<<< HEAD
         return { success: true, message: 'Your profile has been updated successfully.' };
     } catch (error: any) {
         return { error: error.message || 'An unexpected error occurred while updating your profile.' };
@@ -211,6 +242,9 @@ export async function updateNotionSettingsAction(values: unknown) {
         await session.save();
 
         return { success: true, message: 'Your Notion settings have been updated successfully.' };
+=======
+        return { success: true, message: 'Your settings have been updated successfully.' };
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
     } catch (error: any) {
         return { error: error.message || 'An unexpected error occurred while updating your settings.' };
     }
@@ -226,8 +260,11 @@ export async function getCurrentUser() {
         isLoggedIn: session.isLoggedIn,
         username: session.username,
         email: session.email,
+<<<<<<< HEAD
         notionToken: session.notionToken,
         notionDatabases: session.notionDatabases,
+=======
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
     };
 }
 
@@ -581,4 +618,8 @@ export async function getRiskProfileAnalysisAction(
     console.error('AI risk profile analysis failed:', error);
     return { error: 'Failed to generate risk profile analysis.' };
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> e2e3579 (Perfecto. Vamos a crear otra página. Crea una página para los ajustes de)
