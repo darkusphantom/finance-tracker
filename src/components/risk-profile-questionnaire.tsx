@@ -35,6 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getRiskProfileAnalysisAction } from '@/app/actions';
 import type { AssessRiskProfileOutput } from '@/ai/flows/risk-profile-flow';
 import { Progress } from './ui/progress';
+import { Badge } from './ui/badge';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {

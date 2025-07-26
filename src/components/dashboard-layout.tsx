@@ -15,7 +15,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader className="p-4">
-          <a href="#" className="flex items-center gap-2">
+          <a href="/dashboard" className="flex items-center gap-2">
             <Bot className="w-8 h-8 text-primary" />
             <span className="text-lg font-semibold">Notion Finance</span>
           </a>
