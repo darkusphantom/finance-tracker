@@ -14,6 +14,7 @@ import {
   Calculator,
   BotMessageSquare,
   ShieldCheck,
+  Settings,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -28,6 +29,7 @@ export function MainNav() {
     { href: '/calculator', label: 'Calculator', icon: Calculator },
     { href: '/chat', label: 'AI Advisor', icon: BotMessageSquare },
     { href: '/risk-analysis', label: 'Risk Analysis', icon: ShieldCheck },
+    { href: '/settings', label: 'Settings', icon: Settings },
   ];
 
   return (

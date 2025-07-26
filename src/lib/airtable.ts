@@ -56,3 +56,18 @@ export const createUser = async (userData: {email: string, username: string, pas
      throw new Error('Could not create user account.');
   }
 };
+
+export const updateUser = async (userId: string, fieldsToUpdate: { [key: string]: any }) => {
+    try {
+        const updatedRecords = await base(tableId).update([
+            {
+                id: userId,
+                fields: fieldsToUpdate,
+            },
+        ]);
+        return updatedRecords[0];
+    } catch (error) {
+        console.error('Error updating user in Airtable:', error);
+        throw new Error('Could not update user account.');
+    }
+};

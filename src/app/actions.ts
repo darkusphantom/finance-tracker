@@ -18,16 +18,16 @@ import {
 import {
   addPageToDb,
   deletePage,
-  updatePage,
+  updatePage as updateNotionPage,
   findOrCreateMonthPage,
 } from '@/lib/notion';
-import { findUserByUsernameOrEmail, createUser } from '@/lib/airtable';
+import { findUserByUsernameOrEmail, createUser, updateUser as updateUserAirtable } from '@/lib/airtable';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
-import { redirect, isRedirectError } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -42,20 +42,23 @@ export async function loginAction(values: unknown) {
 
     const { loginIdentifier, password } = parsed.data;
 
+    let user;
     try {
-        const user = await findUserByUsernameOrEmail(loginIdentifier);
-
-        if (!user || user.Password !== password) {
-          return { error: 'Invalid credentials.' };
-        }
-
-        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
-        session.isLoggedIn = true;
-        await session.save();
-
+        user = await findUserByUsernameOrEmail(loginIdentifier);
     } catch (error: any) {
         return { error: error.message || 'An unexpected error occurred during login.' };
     }
+
+    if (!user || user.Password !== password) {
+      return { error: 'Invalid credentials.' };
+    }
+
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    session.isLoggedIn = true;
+    session.userId = user.id;
+    session.username = user.Username as string;
+    session.email = user.Email as string;
+    await session.save();
 
     redirect('/dashboard');
 }
@@ -74,7 +77,6 @@ export async function registerAction(values: unknown) {
   const { email, username, password } = parsed.data;
   
   try {
-    // Check if user or email already exists
     const existingUser = await findUserByUsernameOrEmail(username);
     if (existingUser) {
         return { error: 'Username already taken.' };
@@ -83,15 +85,73 @@ export async function registerAction(values: unknown) {
     if (existingEmail) {
         return { error: 'Email already registered.' };
     }
-
-    // Create new user in Airtable
     await createUser({ email, username, password });
-
   } catch (error: any) {
     return { error: error.message || 'An unexpected error occurred during registration.' };
   }
-  // Redirect to login after successful registration
+
   redirect('/login?registered=true');
+}
+
+export async function logoutAction() {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    session.destroy();
+    redirect('/login');
+}
+
+const updateUserSettingsSchema = z.object({
+    username: z.string().min(3, 'Username must be at least 3 characters').optional(),
+    email: z.string().email('Invalid email address').optional(),
+    password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+});
+
+export async function updateUserAction(values: unknown) {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    if (!session.isLoggedIn || !session.userId) {
+        return { error: 'You must be logged in to update your settings.' };
+    }
+
+    const parsed = updateUserSettingsSchema.safeParse(values);
+    if (!parsed.success) {
+        return { error: 'Invalid input.' };
+    }
+
+    const { username, email, password } = parsed.data;
+    const fieldsToUpdate: { Username?: string; Email?: string; Password?: string } = {};
+
+    if (username) fieldsToUpdate.Username = username;
+    if (email) fieldsToUpdate.Email = email;
+    if (password) fieldsToUpdate.Password = password;
+
+    if (Object.keys(fieldsToUpdate).length === 0) {
+        return { success: true, message: 'No changes were made.' };
+    }
+
+    try {
+        await updateUserAirtable(session.userId, fieldsToUpdate);
+        
+        // Update session if needed
+        if (username) session.username = username;
+        if (email) session.email = email;
+        await session.save();
+        
+        return { success: true, message: 'Your settings have been updated successfully.' };
+    } catch (error: any) {
+        return { error: error.message || 'An unexpected error occurred while updating your settings.' };
+    }
+}
+
+
+export async function getCurrentUser() {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    if (!session.isLoggedIn) {
+        return null;
+    }
+    return {
+        isLoggedIn: session.isLoggedIn,
+        username: session.username,
+        email: session.email,
+    };
 }
 
 
@@ -214,7 +274,7 @@ export async function updateTransactionAction(values: unknown) {
         return { error: 'Invalid field.' };
     }
 
-    await updatePage(id, notionProperty);
+    await updateNotionPage(id, notionProperty);
     return { success: true };
   } catch (error) {
     console.error('Failed to update transaction in Notion:', error);
@@ -300,7 +360,7 @@ export async function updateDebtAction(values: unknown) {
       default:
         return { error: 'Invalid field.' };
     }
-    await updatePage(id, notionProperty);
+    await updateNotionPage(id, notionProperty);
     return { success: true };
   } catch (error) {
     console.error('Failed to update debt in Notion:', error);
@@ -377,7 +437,7 @@ export async function updateScheduledPaymentAction(values: unknown) {
       default:
         return { error: 'Invalid field.' };
     }
-    await updatePage(id, notionProperty);
+    await updateNotionPage(id, notionProperty);
     return { success: true };
   } catch (error) {
     console.error('Failed to update scheduled payment in Notion:', error);
@@ -441,5 +501,3 @@ export async function getRiskProfileAnalysisAction(
     return { error: 'Failed to generate risk profile analysis.' };
   }
 }
-
-    

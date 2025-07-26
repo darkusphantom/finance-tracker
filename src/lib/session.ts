@@ -2,6 +2,9 @@ import type { IronSessionOptions } from 'iron-session';
 
 export interface SessionData {
   isLoggedIn: boolean;
+  userId?: string;
+  username?: string;
+  email?: string;
 }
 
 export const sessionOptions: IronSessionOptions = {
