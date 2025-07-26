@@ -14,6 +14,13 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Trash2, PlusCircle, Loader2 } from 'lucide-react';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -24,7 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { addDebtAction } from '@/app/actions';
+import { addDebtAction, updateDebtAction } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
@@ -33,6 +40,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
   const [filter, setFilter] = useState('');
   const [page, setPage] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState<string | null>(null);
   const itemsPerPage = isEditable ? 15 : 10;
   const router = useRouter();
   const { toast } = useToast();
@@ -70,6 +78,23 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
       return debt;
     });
     setDebts(newDebts);
+  };
+  
+  const handleUpdate = async (id: string, field: string, value: any) => {
+    if (!isEditable) return;
+    setIsSaving(`${id}-${field}`);
+    const result = await updateDebtAction({ id, field, value });
+    if (result?.error) {
+        toast({
+            title: 'Update Failed',
+            description: result.error,
+            variant: 'destructive',
+        });
+        setDebts(initialDebts); // Revert
+    } else {
+        router.refresh();
+    }
+    setIsSaving(null);
   };
   
   const handleAddNewDebt = async () => {
@@ -126,22 +151,44 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
         {paginatedDebts.map((debt) => (
           <div key={debt.id}>
             <div className="flex justify-between items-center mb-2">
+              <div className="relative flex-1 mr-4">
+                {isEditable ? (
+                    <Input
+                    value={debt.name}
+                    onChange={(e) => handleInputChange(debt.id, 'name', e.target.value)}
+                    onBlur={(e) => handleUpdate(debt.id, 'name', e.target.value)}
+                    className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-full"
+                    />
+                ) : (
+                    <span className="font-medium">{debt.name}</span>
+                )}
+                 {isSaving === `${debt.id}-name` && <Loader2 className="animate-spin absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+              </div>
               {isEditable ? (
-                <Input
-                  value={debt.name}
-                  onChange={(e) =>
-                    handleInputChange(debt.id, 'name', e.target.value)
-                  }
-                  className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-auto"
-                />
+                 <Select
+                    value={debt.type}
+                    onValueChange={(value) => {
+                        handleInputChange(debt.id, 'type', value);
+                        handleUpdate(debt.id, 'type', value);
+                    }}
+                    >
+                    <SelectTrigger className="w-[120px] border-none bg-transparent p-0 h-auto focus:ring-0 text-xs">
+                         <Badge variant={debt.type === 'Debt' ? 'destructive' : 'secondary'}>
+                            <SelectValue placeholder="Select type" />
+                         </Badge>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Debt">Debt</SelectItem>
+                        <SelectItem value="Debtor">Debtor</SelectItem>
+                    </SelectContent>
+                 </Select>
               ) : (
-                <span className="font-medium">{debt.name}</span>
+                <Badge
+                    variant={debt.type === 'Debt' ? 'destructive' : 'secondary'}
+                >
+                    {debt.type}
+                </Badge>
               )}
-              <Badge
-                variant={debt.type === 'Debt' ? 'destructive' : 'secondary'}
-              >
-                {debt.type}
-              </Badge>
             </div>
             <div className="flex justify-between items-baseline text-sm mb-1">
               <div className="text-muted-foreground flex items-center gap-1">
@@ -155,6 +202,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
                       onChange={(e) =>
                         handleInputChange(debt.id, 'paid', e.target.value)
                       }
+                      onBlur={(e) => handleUpdate(debt.id, 'paid', e.target.value)}
                       className="font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-20"
                     />
                     of $
@@ -164,6 +212,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
                       onChange={(e) =>
                         handleInputChange(debt.id, 'total', e.target.value)
                       }
+                      onBlur={(e) => handleUpdate(debt.id, 'total', e.target.value)}
                       className="font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 w-20"
                     />
                   </>

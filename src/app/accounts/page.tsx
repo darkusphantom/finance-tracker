@@ -20,7 +20,6 @@ export default async function AccountsPage() {
             Accounts
           </h1>
         </div>
-        <AddTransactionSheet />
       </header>
       <main>
         <AccountBalances initialAccounts={accounts}/>

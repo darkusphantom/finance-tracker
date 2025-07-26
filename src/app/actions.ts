@@ -216,6 +216,42 @@ export async function addDebtAction() {
     }
 }
 
+const updateDebtSchema = z.object({
+  id: z.string(),
+  field: z.string(),
+  value: z.any(),
+});
+
+export async function updateDebtAction(values: unknown) {
+    const parsed = updateDebtSchema.safeParse(values);
+    if (!parsed.success) {
+        return { error: 'Invalid input.' };
+    }
+
+    try {
+        const { id, field, value } = parsed.data;
+        let notionProperty;
+        switch (field) {
+            case 'name':
+                notionProperty = { 'Title': { title: [{ text: { content: value } }] } };
+                break;
+            case 'total':
+                notionProperty = { 'Debt Amount': { number: parseFloat(value) || 0 } };
+                break;
+            case 'type':
+                 notionProperty = { 'Type': { select: { name: value === 'Debt' ? 'Deuda' : 'Deudor' } } };
+                break;
+            default:
+                return { error: 'Invalid field.' };
+        }
+        await updatePage(id, notionProperty);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to update debt in Notion:', error);
+        return { error: 'Failed to update debt.' };
+    }
+}
+
 
 const scheduledPaymentSchema = z.object({
     name: z.string().min(1, 'Name is required'),
