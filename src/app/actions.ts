@@ -42,19 +42,20 @@ export async function loginAction(values: unknown) {
 
   const { loginIdentifier, password } = parsed.data;
   
+  let user;
   try {
-    const user = await findUserByUsernameOrEmail(loginIdentifier);
-
-    if (user && user.Password === password) {
-        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
-        session.isLoggedIn = true;
-        await session.save();
-        redirect('/dashboard');
-    } else {
-        return { error: 'Invalid credentials.' };
-    }
+    user = await findUserByUsernameOrEmail(loginIdentifier);
   } catch (error: any) {
     return { error: error.message || 'An unexpected error occurred during login.' };
+  }
+
+  if (user && user.Password === password) {
+      const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+      session.isLoggedIn = true;
+      await session.save();
+      return redirect('/dashboard');
+  } else {
+      return { error: 'Invalid credentials.' };
   }
 }
 
