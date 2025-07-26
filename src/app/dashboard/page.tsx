@@ -9,19 +9,23 @@ import {
   transformTransactionData,
 } from '@/lib/utils';
 import { DashboardClientLayout } from '@/components/dashboard-client-layout';
+import { getIronSession } from 'iron-session';
+import { cookies } from 'next/headers';
+import { sessionOptions, type SessionData } from '@/lib/session';
 
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
+  const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+  const rawAccounts = await getAccounts(session.notionDatabases?.accounts!);
   const accounts = transformAccountData(rawAccounts);
 
-  const rawDebts = await getDebts(process.env.NOTION_DEBTS_DB!);
+  const rawDebts = await getDebts(session.notionDatabases?.debts!);
   const debts = transformDebtData(rawDebts);
 
   const rawTransactions = await getAllTransactions(
-    process.env.NOTION_TRANSACTIONS_DB!,
-    process.env.NOTION_INCOME_DB!
+    session.notionDatabases?.transactions!,
+    session.notionDatabases?.income!
   );
   const transactions = transformTransactionData(rawTransactions);
   const financialSummary = calculateFinancialSummary(transactions);

@@ -28,6 +28,7 @@ import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/navigation';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -58,6 +59,15 @@ export async function loginAction(values: unknown) {
     session.userId = user.id;
     session.username = user.Username as string;
     session.email = user.Email as string;
+    session.notionToken = user.NOTION_TOKEN as string;
+    session.notionDatabases = {
+        transactions: user.NOTION_TRANSACTIONS_DB as string,
+        income: user.NOTION_INCOME_DB as string,
+        totalSavings: user.NOTION_TOTAL_SAVINGS_DB as string,
+        accounts: user.NOTION_ACCOUNTS_DB as string,
+        debts: user.NOTION_DEBTS_DB as string,
+        budget: user.NOTION_BUDGET_DB as string,
+    };
     await session.save();
 
     redirect('/dashboard');
@@ -87,6 +97,9 @@ export async function registerAction(values: unknown) {
     }
     await createUser({ email, username, password });
   } catch (error: any) {
+     if (isRedirectError(error)) {
+      throw error;
+    }
     return { error: error.message || 'An unexpected error occurred during registration.' };
   }
 
@@ -99,10 +112,9 @@ export async function logoutAction() {
     redirect('/login');
 }
 
-const updateUserSettingsSchema = z.object({
-    username: z.string().min(3, 'Username must be at least 3 characters').optional(),
-    email: z.string().email('Invalid email address').optional(),
-    password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
+const updateUserSchema = z.object({
+    username: z.string().min(3, 'Username must be at least 3 characters'),
+    email: z.string().email('Invalid email address'),
 });
 
 export async function updateUserAction(values: unknown) {
@@ -111,17 +123,16 @@ export async function updateUserAction(values: unknown) {
         return { error: 'You must be logged in to update your settings.' };
     }
 
-    const parsed = updateUserSettingsSchema.safeParse(values);
+    const parsed = updateUserSchema.safeParse(values);
     if (!parsed.success) {
         return { error: 'Invalid input.' };
     }
 
-    const { username, email, password } = parsed.data;
-    const fieldsToUpdate: { Username?: string; Email?: string; Password?: string } = {};
+    const { username, email } = parsed.data;
+    const fieldsToUpdate: { Username?: string; Email?: string; } = {};
 
     if (username) fieldsToUpdate.Username = username;
     if (email) fieldsToUpdate.Email = email;
-    if (password) fieldsToUpdate.Password = password;
 
     if (Object.keys(fieldsToUpdate).length === 0) {
         return { success: true, message: 'No changes were made.' };
@@ -130,12 +141,76 @@ export async function updateUserAction(values: unknown) {
     try {
         await updateUserAirtable(session.userId, fieldsToUpdate);
         
-        // Update session if needed
         if (username) session.username = username;
         if (email) session.email = email;
         await session.save();
         
-        return { success: true, message: 'Your settings have been updated successfully.' };
+        return { success: true, message: 'Your profile has been updated successfully.' };
+    } catch (error: any) {
+        return { error: error.message || 'An unexpected error occurred while updating your profile.' };
+    }
+}
+
+const updatePasswordSchema = z.object({
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+export async function updatePasswordAction(values: unknown) {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    if (!session.isLoggedIn || !session.userId) {
+        return { error: 'You must be logged in to update your password.' };
+    }
+
+    const parsed = updatePasswordSchema.safeParse(values);
+    if (!parsed.success) {
+        return { error: 'Invalid input.' };
+    }
+    
+    try {
+        await updateUserAirtable(session.userId, { Password: parsed.data.password });
+        return { success: true, message: 'Your password has been updated successfully.' };
+    } catch (error: any) {
+        return { error: error.message || 'An unexpected error occurred while updating your password.' };
+    }
+}
+
+const notionSettingsSchema = z.object({
+    NOTION_TOKEN: z.string().min(1, "Notion Token is required"),
+    NOTION_TRANSACTIONS_DB: z.string().min(1, "Transactions DB ID is required"),
+    NOTION_INCOME_DB: z.string().min(1, "Income DB ID is required"),
+    NOTION_TOTAL_SAVINGS_DB: z.string().min(1, "Total Savings DB ID is required"),
+    NOTION_ACCOUNTS_DB: z.string().min(1, "Accounts DB ID is required"),
+    NOTION_DEBTS_DB: z.string().min(1, "Debts DB ID is required"),
+    NOTION_BUDGET_DB: z.string().min(1, "Budget DB ID is required"),
+});
+
+export async function updateNotionSettingsAction(values: unknown) {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    if (!session.isLoggedIn || !session.userId) {
+        return { error: 'You must be logged in to update your settings.' };
+    }
+
+    const parsed = notionSettingsSchema.safeParse(values);
+    if (!parsed.success) {
+        return { error: 'Invalid input.', details: parsed.error.format() };
+    }
+    
+    try {
+        await updateUserAirtable(session.userId, parsed.data);
+        
+        // Update session
+        session.notionToken = parsed.data.NOTION_TOKEN;
+        session.notionDatabases = {
+            transactions: parsed.data.NOTION_TRANSACTIONS_DB,
+            income: parsed.data.NOTION_INCOME_DB,
+            totalSavings: parsed.data.NOTION_TOTAL_SAVINGS_DB,
+            accounts: parsed.data.NOTION_ACCOUNTS_DB,
+            debts: parsed.data.NOTION_DEBTS_DB,
+            budget: parsed.data.NOTION_BUDGET_DB,
+        };
+        await session.save();
+
+        return { success: true, message: 'Your Notion settings have been updated successfully.' };
     } catch (error: any) {
         return { error: error.message || 'An unexpected error occurred while updating your settings.' };
     }
@@ -151,6 +226,8 @@ export async function getCurrentUser() {
         isLoggedIn: session.isLoggedIn,
         username: session.username,
         email: session.email,
+        notionToken: session.notionToken,
+        notionDatabases: session.notionDatabases,
     };
 }
 
@@ -213,10 +290,11 @@ export async function addTransactionAction(values: unknown) {
 
   try {
     const { description, amount, category, date, type } = parsed.data;
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
 
     const monthName = format(date, 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
-      process.env.NOTION_TOTAL_SAVINGS_DB!,
+      session.notionDatabases?.totalSavings!,
       monthName
     );
 
@@ -224,8 +302,8 @@ export async function addTransactionAction(values: unknown) {
 
     const databaseId =
       type === 'income'
-        ? process.env.NOTION_INCOME_DB!
-        : process.env.NOTION_TRANSACTIONS_DB!;
+        ? session.notionDatabases?.income!
+        : session.notionDatabases?.transactions!;
 
     await addPageToDb(databaseId, {
       Source: { title: [{ text: { content: description } }] },
@@ -294,6 +372,7 @@ export async function deleteTransactionAction(id: string) {
 
 export async function addAccountAction() {
   try {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
     const notionProperties = {
       Name: { title: [{ text: { content: 'New Account' } }] },
       'Account Type': { select: { name: 'Corriente' } },
@@ -301,7 +380,7 @@ export async function addAccountAction() {
       'Is Active': { checkbox: true },
     };
     const newPage = await addPageToDb(
-      process.env.NOTION_ACCOUNTS_DB!,
+      session.notionDatabases?.accounts!,
       notionProperties
     );
     return { success: true, newPageId: newPage.id };
@@ -313,6 +392,7 @@ export async function addAccountAction() {
 
 export async function addDebtAction() {
   try {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
     const notionProperties = {
       Title: { title: [{ text: { content: 'New Debt' } }] },
       Type: { select: { name: 'Deuda' } },
@@ -320,7 +400,7 @@ export async function addDebtAction() {
       Status: { select: { name: 'Pendiente' } },
     };
     const newPage = await addPageToDb(
-      process.env.NOTION_DEBTS_DB!,
+      session.notionDatabases?.debts!,
       notionProperties
     );
     return { success: true, newPageId: newPage.id };
@@ -385,6 +465,7 @@ export async function addScheduledPaymentAction(
   }
 
   try {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
     const { name, day, amount, type, category } = parsed.data;
     const notionProperties = {
       Name: { title: [{ text: { content: name } }] },
@@ -394,7 +475,7 @@ export async function addScheduledPaymentAction(
       Category: { select: { name: category === 'income' ? 'Ingreso' : 'Pago' } },
     };
     const newPage = await addPageToDb(
-      process.env.NOTION_BUDGET_DB!,
+      session.notionDatabases?.budget!,
       notionProperties
     );
     return { success: true, newPageId: newPage.id };

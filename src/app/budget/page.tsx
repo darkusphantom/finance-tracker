@@ -12,18 +12,22 @@ import {
 } from '@/lib/utils';
 import { ScheduledPayments } from '@/components/scheduled-payments';
 import { Separator } from '@/components/ui/separator';
+import { getIronSession } from 'iron-session';
+import { cookies } from 'next/headers';
+import { sessionOptions, type SessionData } from '@/lib/session';
 
 export const revalidate = 0;
 
 export default async function BudgetPage() {
+  const session = await getIronSession<SessionData>(cookies(), sessionOptions);
   const rawTransactions = await getAllTransactions(
-    process.env.NOTION_TRANSACTIONS_DB!,
-    process.env.NOTION_INCOME_DB!
+    session.notionDatabases?.transactions!,
+    session.notionDatabases?.income!
   );
   const transactions = transformTransactionData(rawTransactions);
 
   const rawScheduledPayments = await getScheduledPayments(
-    process.env.NOTION_BUDGET_DB!
+    session.notionDatabases?.budget!
   );
   const scheduledPayments = transformScheduledPaymentsData(rawScheduledPayments);
 

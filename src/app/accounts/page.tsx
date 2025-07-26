@@ -4,11 +4,15 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { getAccounts } from '@/lib/notion';
 import { transformAccountData } from '@/lib/utils';
+import { getIronSession } from 'iron-session';
+import { cookies } from 'next/headers';
+import { sessionOptions, type SessionData } from '@/lib/session';
 
 export const revalidate = 0;
 
 export default async function AccountsPage() {
-    const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    const rawAccounts = await getAccounts(session.notionDatabases?.accounts!);
     const accounts = transformAccountData(rawAccounts);
 
   return (

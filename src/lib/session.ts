@@ -5,6 +5,15 @@ export interface SessionData {
   userId?: string;
   username?: string;
   email?: string;
+  notionToken?: string;
+  notionDatabases?: {
+    transactions: string;
+    income: string;
+    totalSavings: string;
+    accounts: string;
+    debts: string;
+    budget: string;
+  };
 }
 
 export const sessionOptions: IronSessionOptions = {

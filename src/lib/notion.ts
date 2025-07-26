@@ -1,13 +1,20 @@
 'use server';
 
 import { Client } from '@notionhq/client';
-import dotenv from 'dotenv';
+import { getIronSession } from 'iron-session';
+import { cookies } from 'next/headers';
+import { sessionOptions, type SessionData } from '@/lib/session';
 
-dotenv.config();
+async function getNotionClient() {
+    const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+    const token = session.notionToken;
+    if (!token) {
+        // This case should be handled by middleware, but as a safeguard:
+        throw new Error('Notion token is not configured for this user.');
+    }
+    return new Client({ auth: token });
+}
 
-const notion = new Client({
-  auth: process.env.NOTION_TOKEN,
-});
 
 export const getTransactions = async (databaseId: string) => {
   try {
@@ -15,6 +22,7 @@ export const getTransactions = async (databaseId: string) => {
       // Return empty array if DB ID is not set, to avoid crashing
       return [];
     }
+    const notion = await getNotionClient();
     const response = await notion.databases.query({
       database_id: databaseId,
     });
@@ -31,6 +39,7 @@ export const getAccounts = async (databaseId: string) => {
             console.warn('Accounts Database ID is not defined.');
             return [];
         }
+        const notion = await getNotionClient();
         const response = await notion.databases.query({
             database_id: databaseId,
         });
@@ -47,6 +56,7 @@ export const getDebts = async (databaseId: string) => {
       console.warn('Debts Database ID is not defined.');
       return [];
     }
+    const notion = await getNotionClient();
     const response = await notion.databases.query({
       database_id: databaseId,
     });
@@ -63,6 +73,7 @@ export const getScheduledPayments = async (databaseId: string) => {
       console.warn('Budget Database ID is not defined.');
       return [];
     }
+    const notion = await getNotionClient();
     const response = await notion.databases.query({
       database_id: databaseId,
     });
@@ -103,6 +114,7 @@ export const addPageToDb = async (databaseId: string, properties: any) => {
   if (!databaseId) {
     throw new Error('Database ID is undefined');
   }
+  const notion = await getNotionClient();
   const response = await notion.pages.create({
     parent: { database_id: databaseId },
     properties,
@@ -111,6 +123,7 @@ export const addPageToDb = async (databaseId: string, properties: any) => {
 };
 
 export const updatePage = async (pageId: string, properties: any) => {
+  const notion = await getNotionClient();
   await notion.pages.update({
     page_id: pageId,
     properties,
@@ -118,6 +131,7 @@ export const updatePage = async (pageId: string, properties: any) => {
 };
 
 export const deletePage = async (pageId: string) => {
+  const notion = await getNotionClient();
   await notion.pages.update({
     page_id: pageId,
     archived: true,
@@ -131,6 +145,7 @@ export const findOrCreateMonthPage = async (
   if (!databaseId) {
     throw new Error('Total Savings Database ID is undefined');
   }
+  const notion = await getNotionClient();
   // 1. Search for the month page
   const searchResponse = await notion.databases.query({
     database_id: databaseId,

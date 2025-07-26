@@ -4,11 +4,15 @@ import { Debts } from '@/components/debts';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { getDebts } from '@/lib/notion';
 import { transformDebtData } from '@/lib/utils';
+import { getIronSession } from 'iron-session';
+import { cookies } from 'next/headers';
+import { sessionOptions, type SessionData } from '@/lib/session';
 
 export const revalidate = 0;
 
 export default async function DebtsPage() {
-  const rawDebts = await getDebts(process.env.NOTION_DEBTS_DB!);
+  const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+  const rawDebts = await getDebts(session.notionDatabases?.debts!);
   const debts = transformDebtData(rawDebts);
 
   return (
