@@ -62,6 +62,8 @@ export function RiskProfileQuestionnaire() {
     defaultValues: {
       jobStability: 'moderate',
       healthStatus: 'good',
+      emergencyFund: 0,
+      monthlyExpenses: 0,
     },
   });
 
