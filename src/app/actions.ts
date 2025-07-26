@@ -27,8 +27,7 @@ import { format } from 'date-fns';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { isRedirectError } from 'next/dist/client/components/redirect';
+import { redirect, isRedirectError } from 'next/navigation';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -50,7 +49,7 @@ export async function loginAction(values: unknown) {
       const session = await getIronSession<SessionData>(cookies(), sessionOptions);
       session.isLoggedIn = true;
       await session.save();
-      return redirect('/dashboard');
+      redirect('/dashboard');
     } else {
       return { error: 'Invalid credentials.' };
     }
@@ -90,10 +89,13 @@ export async function registerAction(values: unknown) {
     await createUser({ email, username, password });
 
   } catch (error: any) {
+    if (isRedirectError(error)) {
+        throw error;
+    }
     return { error: error.message || 'An unexpected error occurred during registration.' };
   }
   // Redirect to login after successful registration
-  return redirect('/login?registered=true');
+  redirect('/login?registered=true');
 }
 
 
