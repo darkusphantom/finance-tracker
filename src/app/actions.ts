@@ -10,7 +10,6 @@ import {
 } from '@/ai/flows/extract-transaction-from-image';
 import {
   financialChat,
-  type FinancialChatInput,
 } from '@/ai/flows/financial-chat-flow';
 import {
   assessRiskProfile,
@@ -22,7 +21,7 @@ import {
   updatePage,
   findOrCreateMonthPage,
 } from '@/lib/notion';
-import { findUserByUsername } from '@/lib/airtable';
+import { findUserByUsernameOrEmail } from '@/lib/airtable';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { getIronSession } from 'iron-session';
@@ -31,7 +30,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
+  loginIdentifier: z.string().min(1, 'Username or email is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -41,12 +40,12 @@ export async function loginAction(values: unknown) {
     return { error: 'Invalid input.' };
   }
 
-  const { username, password } = parsed.data;
+  const { loginIdentifier, password } = parsed.data;
   
   try {
-    const user = await findUserByUsername(username);
+    const user = await findUserByUsernameOrEmail(loginIdentifier);
 
-    if (user && user.password === password) {
+    if (user && user.Password === password) {
         const session = await getIronSession<SessionData>(cookies(), sessionOptions);
         session.isLoggedIn = true;
         await session.save();

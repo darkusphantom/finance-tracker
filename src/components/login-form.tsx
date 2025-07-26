@@ -19,7 +19,7 @@ import { loginAction } from '@/app/actions';
 import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
-  username: z.string().min(1, { message: 'Username is required.' }),
+  loginIdentifier: z.string().min(1, { message: 'Username or Email is required.' }),
   password: z.string().min(1, { message: 'Password is required.' }),
 });
 
@@ -30,7 +30,7 @@ export function LoginForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: '',
+      loginIdentifier: '',
       password: '',
     },
   });
@@ -54,12 +54,12 @@ export function LoginForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
-          name="username"
+          name="loginIdentifier"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Usuario</FormLabel>
+              <FormLabel>Usuario o Email</FormLabel>
               <FormControl>
-                <Input placeholder="tu-usuario" {...field} />
+                <Input placeholder="tu-usuario o tu@email.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

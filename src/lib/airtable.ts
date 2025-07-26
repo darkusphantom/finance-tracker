@@ -14,7 +14,7 @@ if (!apiKey || !baseId) {
 
 const base = new Airtable({ apiKey }).base(baseId);
 
-export const findUserByUsername = async (username: string) => {
+export const findUserByUsernameOrEmail = async (loginIdentifier: string) => {
   const tableId = process.env.AIRTABLE_USERS_TABLE_ID;
   if (!tableId) {
     throw new Error('Airtable Users Table ID is not defined.');
@@ -24,7 +24,7 @@ export const findUserByUsername = async (username: string) => {
     const records = await base(tableId)
       .select({
         maxRecords: 1,
-        filterByFormula: `{username} = "${username}"`,
+        filterByFormula: `OR({Username} = "${loginIdentifier}", {Email} = "${loginIdentifier}")`,
       })
       .firstPage();
     
