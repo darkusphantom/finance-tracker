@@ -10,6 +10,8 @@ const notion = new Client({
   auth: process.env.NOTION_TOKEN,
 });
 
+const isEmail = (str: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+
 export const findUserByUsernameOrEmail = async (loginIdentifier: string) => {
   const authDbId = process.env.NOTION_AUTH_DB;
   if (!authDbId) {
@@ -17,24 +19,26 @@ export const findUserByUsernameOrEmail = async (loginIdentifier: string) => {
   }
 
   try {
+    let filter;
+    if (isEmail(loginIdentifier)) {
+      filter = {
+        property: 'Email',
+        email: {
+          equals: loginIdentifier,
+        },
+      };
+    } else {
+      filter = {
+        property: 'Username',
+        rich_text: {
+          equals: loginIdentifier,
+        },
+      };
+    }
+
     const response = await notion.databases.query({
       database_id: authDbId,
-      filter: {
-        or: [
-          {
-            property: 'Username',
-            rich_text: {
-              equals: loginIdentifier,
-            },
-          },
-          {
-            property: 'Email',
-            email: {
-              equals: loginIdentifier,
-            },
-          },
-        ],
-      },
+      filter: filter,
     });
 
     if (response.results.length > 0) {

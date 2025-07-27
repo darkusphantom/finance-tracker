@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/navigation';
+import bcrypt from 'bcrypt';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -35,27 +36,42 @@ const loginSchema = z.object({
 });
 
 export async function loginAction(values: unknown) {
-    const parsed = loginSchema.safeParse(values);
-    if (!parsed.success) {
-      return { error: 'Invalid input.' };
-    }
+  const parsed = loginSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
 
-    const { loginIdentifier, password } = parsed.data;
+  const { loginIdentifier, password } = parsed.data;
 
+  try {
     const user = await findUserByUsernameOrEmail(loginIdentifier);
 
-    if (!user || user.password !== password) {
+    if (!user) {
+      return { error: 'Invalid credentials.' };
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
       return { error: 'Invalid credentials.' };
     }
 
     cookies().set('auth-token', user.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 7, // One week
-        path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7, // One week
+      path: '/',
     });
+  } catch (error: any) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+    return {
+      error: error.message || 'An unexpected error occurred during login.',
+    };
+  }
 
-    redirect('/dashboard');
+  redirect('/dashboard');
 }
 
 const registerSchema = z.object({
@@ -70,24 +86,27 @@ export async function registerAction(values: unknown) {
     return { error: 'Invalid input.' };
   }
   const { email, username, password } = parsed.data;
-  
+
   try {
     const existingUser = await findUserByUsernameOrEmail(username);
     if (existingUser) {
-        return { error: 'Username already taken.' };
+      return { error: 'Username already taken.' };
     }
     const existingEmail = await findUserByUsernameOrEmail(email);
     if (existingEmail) {
-        return { error: 'Email already registered.' };
+      return { error: 'Email already registered.' };
     }
 
-    await createUser({ email, username, password });
-    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await createUser({ email, username, password: hashedPassword });
   } catch (error: any) {
-     if (isRedirectError(error)) {
-        throw error;
-      }
-    return { error: error.message || 'An unexpected error occurred during registration.' };
+    if (isRedirectError(error)) {
+      throw error;
+    }
+    return {
+      error:
+        error.message || 'An unexpected error occurred during registration.',
+    };
   }
   redirect('/login?registered=true');
 }
