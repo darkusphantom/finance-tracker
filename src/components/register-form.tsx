@@ -17,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { registerAction } from '@/app/actions';
 import { Loader2 } from 'lucide-react';
-import { isRedirectError } from 'next/dist/client/components/redirect';
 import { useRouter } from 'next/navigation';
 
 
@@ -43,32 +42,25 @@ export function RegisterForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    try {
-      const result = await registerAction(values);
-      if (result?.error) {
-        toast({
-          title: 'Registro Fallido',
-          description: result.error,
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      if (isRedirectError(error)) {
+    const result = await registerAction(values);
+
+    if (result?.error) {
+      toast({
+        title: 'Registro Fallido',
+        description: result.error,
+        variant: 'destructive',
+      });
+    } else {
         toast({
           title: '¡Registro Exitoso!',
           description: 'Ya puedes iniciar sesión con tu nueva cuenta.',
         });
-        router.push(error.digest.split(';')[1]); // Extract URL from digest
-      } else {
-        toast({
-          title: 'Error Inesperado',
-          description: 'Ocurrió un error durante el registro.',
-          variant: 'destructive',
-        });
-      }
-    } finally {
-        setIsSubmitting(false);
+        // The redirect is handled by the server action
     }
+    
+    // In case of error, we stop the loading state. 
+    // If successful, the redirect will unmount the component anyway.
+    setIsSubmitting(false);
   }
 
   return (

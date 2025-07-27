@@ -63,9 +63,6 @@ export async function loginAction(values: unknown) {
       path: '/',
     });
   } catch (error: any) {
-    if (isRedirectError(error)) {
-      throw error;
-    }
     return {
       error: error.message || 'An unexpected error occurred during login.',
     };
@@ -100,9 +97,6 @@ export async function registerAction(values: unknown) {
     const hashedPassword = await bcrypt.hash(password, 10);
     await createUser({ email, username, password: hashedPassword });
   } catch (error: any) {
-    if (isRedirectError(error)) {
-      throw error;
-    }
     return {
       error:
         error.message || 'An unexpected error occurred during registration.',
