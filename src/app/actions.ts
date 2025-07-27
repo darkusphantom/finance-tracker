@@ -27,7 +27,7 @@ import { format } from 'date-fns';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
-import { redirect, isRedirectError } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -43,13 +43,13 @@ export async function loginAction(values: unknown) {
     const { loginIdentifier, password } = parsed.data;
 
     try {
-        const user = await findUserByUsernameOrEmail(loginIdentifier);
+        const user = await findUserByUsernameOrEmail(loginIdentifier) as any;
 
         if (!user || user.Password !== password) {
           return { error: 'Invalid credentials.' };
         }
 
-        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+        const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
         session.isLoggedIn = true;
         await session.save();
 
