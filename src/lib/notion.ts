@@ -2,12 +2,78 @@
 
 import { Client } from '@notionhq/client';
 import dotenv from 'dotenv';
+import { getProperty } from './utils';
 
 dotenv.config();
 
 const notion = new Client({
   auth: process.env.NOTION_TOKEN,
 });
+
+export const findUserByUsernameOrEmail = async (loginIdentifier: string) => {
+  const authDbId = process.env.NOTION_AUTH_DB;
+  if (!authDbId) {
+    throw new Error('Notion Auth DB ID is not configured.');
+  }
+
+  try {
+    const response = await notion.databases.query({
+      database_id: authDbId,
+      filter: {
+        or: [
+          {
+            property: 'Username',
+            rich_text: {
+              equals: loginIdentifier,
+            },
+          },
+          {
+            property: 'Email',
+            email: {
+              equals: loginIdentifier,
+            },
+          },
+        ],
+      },
+    });
+
+    if (response.results.length > 0) {
+      const userPage = response.results[0] as any;
+      return {
+        id: userPage.id,
+        username: getProperty(userPage.properties.Username),
+        email: getProperty(userPage.properties.Email),
+        password: getProperty(userPage.properties.Password),
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error finding user in Notion:', error);
+    throw new Error('Could not connect to the user database.');
+  }
+};
+
+export const createUser = async (userData: {email: string, username: string, password: string})=> {
+    const authDbId = process.env.NOTION_AUTH_DB;
+    if (!authDbId) {
+        throw new Error('Notion Auth DB ID is not configured.');
+    }
+
+    try {
+        const newUser = await notion.pages.create({
+            parent: { database_id: authDbId },
+            properties: {
+                Username: { rich_text: [{ text: { content: userData.username } }] },
+                Email: { email: userData.email },
+                Password: { rich_text: [{ text: { content: userData.password } }] },
+            },
+        });
+        return newUser;
+    } catch (error) {
+        console.error('Error creating user in Notion:', error);
+        throw new Error('Could not create user account.');
+    }
+}
 
 export const getTransactions = async (databaseId: string) => {
   try {

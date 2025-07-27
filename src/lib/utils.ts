@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Helper function to safely extract properties from Notion's complex object
-const getProperty = (prop: any) => {
+export const getProperty = (prop: any) => {
   if (!prop) return null;
   switch (prop.type) {
     case 'title':
@@ -22,6 +22,8 @@ const getProperty = (prop: any) => {
       return prop.date?.start;
     case 'checkbox':
       return prop.checkbox;
+    case 'email':
+      return prop.email;
     default:
       return null;
   }

@@ -20,14 +20,16 @@ import {
   deletePage,
   updatePage,
   findOrCreateMonthPage,
+  findUserByUsernameOrEmail,
+  createUser
 } from '@/lib/notion';
-import { findUserByUsernameOrEmail, createUser } from '@/lib/airtable';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { getIronSession } from 'iron-session';
 import { sessionOptions, type SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -43,21 +45,23 @@ export async function loginAction(values: unknown) {
     const { loginIdentifier, password } = parsed.data;
 
     try {
-        const user = await findUserByUsernameOrEmail(loginIdentifier) as any;
+        const user = await findUserByUsernameOrEmail(loginIdentifier);
 
-        if (!user || user.Password !== password) {
+        if (!user || user.password !== password) {
           return { error: 'Invalid credentials.' };
         }
 
-        const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
         session.isLoggedIn = true;
         await session.save();
+        redirect('/dashboard');
 
     } catch (error: any) {
+        if (isRedirectError(error)) {
+          throw error;
+        }
         return { error: error.message || 'An unexpected error occurred during login.' };
     }
-
-    redirect('/dashboard');
 }
 
 const registerSchema = z.object({
@@ -74,7 +78,6 @@ export async function registerAction(values: unknown) {
   const { email, username, password } = parsed.data;
   
   try {
-    // Check if user or email already exists
     const existingUser = await findUserByUsernameOrEmail(username);
     if (existingUser) {
         return { error: 'Username already taken.' };
@@ -84,14 +87,15 @@ export async function registerAction(values: unknown) {
         return { error: 'Email already registered.' };
     }
 
-    // Create new user in Airtable
     await createUser({ email, username, password });
+    redirect('/login?registered=true');
 
   } catch (error: any) {
+    if (isRedirectError(error)) {
+        throw error;
+    }
     return { error: error.message || 'An unexpected error occurred during registration.' };
   }
-  // Redirect to login after successful registration
-  redirect('/login?registered=true');
 }
 
 
@@ -441,5 +445,3 @@ export async function getRiskProfileAnalysisAction(
     return { error: 'Failed to generate risk profile analysis.' };
   }
 }
-
-    
