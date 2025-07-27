@@ -25,11 +25,9 @@ import {
 } from '@/lib/notion';
 import { z } from 'zod';
 import { format } from 'date-fns';
-import { getIronSession } from 'iron-session';
-import { sessionOptions, type SessionData } from '@/lib/session';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { isRedirectError } from 'next/dist/client/components/redirect';
+import { isRedirectError } from 'next/navigation';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -44,23 +42,19 @@ export async function loginAction(values: unknown) {
 
     const { loginIdentifier, password } = parsed.data;
 
-    try {
-        const user = await findUserByUsernameOrEmail(loginIdentifier);
+    const user = await findUserByUsernameOrEmail(loginIdentifier);
 
-        if (!user || user.password !== password) {
-          return { error: 'Invalid credentials.' };
-        }
-
-        const session = await getIronSession<SessionData>(cookies(), sessionOptions);
-        session.isLoggedIn = true;
-        await session.save();
-        
-    } catch (error: any) {
-        if (isRedirectError(error)) {
-          throw error;
-        }
-        return { error: error.message || 'An unexpected error occurred during login.' };
+    if (!user || user.password !== password) {
+      return { error: 'Invalid credentials.' };
     }
+
+    cookies().set('auth-token', user.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7, // One week
+        path: '/',
+    });
+
     redirect('/dashboard');
 }
 
@@ -96,6 +90,11 @@ export async function registerAction(values: unknown) {
     return { error: error.message || 'An unexpected error occurred during registration.' };
   }
   redirect('/login?registered=true');
+}
+
+export async function logoutAction() {
+    cookies().delete('auth-token');
+    redirect('/login');
 }
 
 

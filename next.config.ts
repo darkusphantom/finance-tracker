@@ -32,7 +32,6 @@ const nextConfig: NextConfig = {
     ]
   },
   env: {
-    SECRET_COOKIE_PASSWORD: process.env.SECRET_COOKIE_PASSWORD,
     NOTION_TOKEN: process.env.NOTION_TOKEN,
     NOTION_AUTH_DB: process.env.NOTION_AUTH_DB,
     NOTION_TRANSACTIONS_DB: process.env.NOTION_TRANSACTIONS_DB,

@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
-import { sessionOptions, type SessionData } from '@/lib/session';
 
 export const metadata: Metadata = {
   title: 'Notion Finance',
@@ -15,8 +13,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
-  const isLoggedIn = session.isLoggedIn || false;
+  const isLoggedIn = cookies().has('auth-token');
 
   return (
     <html lang="en" className="dark">
