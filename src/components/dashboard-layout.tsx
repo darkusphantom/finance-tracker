@@ -6,9 +6,11 @@ import {
   SidebarHeader,
   SidebarContent,
   SidebarInset,
+  SidebarFooter,
 } from '@/components/ui/sidebar';
 import { MainNav } from './main-nav';
 import { Bot } from 'lucide-react';
+import { LogoutButton } from './logout-button';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,6 +25,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <SidebarContent>
           <MainNav />
         </SidebarContent>
+        <SidebarFooter>
+            <LogoutButton />
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <div className="p-4 sm:p-6">{children}</div>
