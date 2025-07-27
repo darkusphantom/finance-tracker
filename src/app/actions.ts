@@ -54,14 +54,14 @@ export async function loginAction(values: unknown) {
         const session = await getIronSession<SessionData>(cookies(), sessionOptions);
         session.isLoggedIn = true;
         await session.save();
-        redirect('/dashboard');
-
+        
     } catch (error: any) {
         if (isRedirectError(error)) {
           throw error;
         }
         return { error: error.message || 'An unexpected error occurred during login.' };
     }
+    redirect('/dashboard');
 }
 
 const registerSchema = z.object({
@@ -88,14 +88,14 @@ export async function registerAction(values: unknown) {
     }
 
     await createUser({ email, username, password });
-    redirect('/login?registered=true');
-
+    
   } catch (error: any) {
-    if (isRedirectError(error)) {
+     if (isRedirectError(error)) {
         throw error;
-    }
+      }
     return { error: error.message || 'An unexpected error occurred during registration.' };
   }
+  redirect('/login?registered=true');
 }
 
 
