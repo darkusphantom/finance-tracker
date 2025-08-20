@@ -1,0 +1,26 @@
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log
+.npm
+
+# Next.js
+.next
+
+# Env files - should be managed on the server
+.env
+.env.local
+.env.development
+.env.production
+
+# Other
+README.md
+*.md

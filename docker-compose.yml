@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  next-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: notion-finance-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # Load environment variables from a .env file in the same directory
+    env_file:
+      - .env
+    # Override the CMD from the Dockerfile to run on port 3000
+    command: node server.js -p 3000
