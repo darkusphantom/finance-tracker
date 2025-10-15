@@ -13,7 +13,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isLoggedIn = cookies().has('auth-token');
+  const cookieStore = await cookies();
+  const isLoggedIn = cookieStore.has('auth-token');
 
   return (
     <html lang="en" className="dark">
