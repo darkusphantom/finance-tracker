@@ -145,6 +145,7 @@ export function AddTransactionForm({
   async function handleSuggestCategory() {
     setIsSuggesting(true);
     const description = form.getValues('description');
+    const type = form.getValues('type');
     if (!description || description.length < 2) {
       form.setError('description', {
         message: 'Please enter a description first.',
@@ -153,7 +154,7 @@ export function AddTransactionForm({
       return;
     }
 
-    const result = await suggestCategoryAction({ description });
+    const result = await suggestCategoryAction({ description, type });
     if (result.category) {
       form.setValue('category', result.category, { shouldValidate: true });
       toast({
@@ -184,28 +185,26 @@ export function AddTransactionForm({
       const result = await extractTransactionAction({ photoDataUri });
 
       if (result.data) {
-        form.setValue('description', result.data.description, {
+        const {description, amount, type} = result.data;
+        form.setValue('description', description, {
           shouldValidate: true,
         });
-        form.setValue('amount', result.data.amount, { shouldValidate: true });
-        form.setValue('type', result.data.type, { shouldValidate: true });
+        form.setValue('amount', amount, { shouldValidate: true });
+        form.setValue('type', type, { shouldValidate: true });
         toast({
           title: 'Scan Successful!',
           description: 'Transaction details have been filled in.',
         });
+
         // Automatically suggest a category after scanning
-        if (result.data.type === 'expense') {
-            const categoryResult = await suggestCategoryAction({
-                description: result.data.description,
+        const categoryResult = await suggestCategoryAction({
+            description: description,
+            type: type,
+        });
+        if (categoryResult.category) {
+            form.setValue('category', categoryResult.category, {
+                shouldValidate: true,
             });
-            if (categoryResult.category) {
-                form.setValue('category', categoryResult.category, {
-                    shouldValidate: true,
-                });
-            }
-        } else {
-            // Reset category if it's an income scan
-            form.setValue('category', '');
         }
       } else if (result.error) {
         toast({
@@ -374,7 +373,6 @@ export function AddTransactionForm({
               <FormItem>
                 <div className="flex justify-between items-center">
                   <FormLabel>Category</FormLabel>
-                  {transactionType === 'expense' && (
                   <Button
                     type="button"
                     variant="outline"
@@ -389,7 +387,6 @@ export function AddTransactionForm({
                     )}
                     Suggest
                   </Button>
-                  )}
                 </div>
                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>

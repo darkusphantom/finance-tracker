@@ -112,6 +112,7 @@ export async function logoutAction() {
 
 const suggestCategorySchema = z.object({
   description: z.string().min(1, 'Description is required.'),
+  type: z.enum(['income', 'expense']),
 });
 
 export async function suggestCategoryAction(

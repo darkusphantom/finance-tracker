@@ -3,7 +3,7 @@
 /**
  * @fileOverview A transaction categorization AI agent.
  *
- * - categorizeTransaction - A function that suggests transaction categories based on the description.
+ * - categorizeTransaction - A function that suggests transaction categories based on the description and type.
  * - CategorizeTransactionInput - The input type for the categorizeTransaction function.
  * - CategorizeTransactionOutput - The return type for the categorizeTransaction function.
  */
@@ -13,6 +13,7 @@ import {z} from 'genkit';
 
 const CategorizeTransactionInputSchema = z.object({
   description: z.string().describe('The description of the transaction.'),
+  type: z.enum(['income', 'expense']).describe('The type of transaction.'),
 });
 export type CategorizeTransactionInput = z.infer<
   typeof CategorizeTransactionInputSchema
@@ -31,17 +32,26 @@ export async function categorizeTransaction(
   return categorizeTransactionFlow(input);
 }
 
+const incomeCategories = "'Salary', 'Bonus', 'Freelance', 'Dividends', 'Interest', 'Side Hustle', 'Loan'";
+const expenseCategories = "'Rent/Mortgage', 'Food & Drink (Groceries)', 'Dining Out', 'Health', 'Personal Care', 'Medicine', 'Transportation', 'Retail', 'Clothes', 'Entertainment', 'Environment Work', 'Technology', 'Education', 'Utilities', 'Insurance', 'Other', 'Debt Payment', 'Prestamo', 'Gift', 'Others'";
+
+
 const prompt = ai.definePrompt({
   name: 'categorizeTransactionPrompt',
   input: {schema: CategorizeTransactionInputSchema},
   output: {schema: CategorizeTransactionOutputSchema},
-  prompt: `You are a personal finance expert. Based on the transaction description provided, suggest a category for the transaction.
+  prompt: `You are a personal finance expert. Based on the transaction description and type provided, suggest a category for the transaction.
 
 Description: {{{description}}}
+Transaction Type: {{{type}}}
 
-Choose ONLY one of the following categories: 'Rent/Mortgage', 'Food & Drink (Groceries)', 'Dining Out', 'Health', 'Personal Care', 'Medicine', 'Transportation', 'Retail', 'Clothes', 'Entertainment', 'Environment Work', 'Technology', 'Education', 'Utilities', 'Insurance', 'Other', 'Debt Payment', 'Prestamo', 'Gift', 'Others'.
+{{#if (eq type "income")}}
+Choose ONLY one of the following income categories: ${incomeCategories}.
+{{else}}
+Choose ONLY one of the following expense categories: ${expenseCategories}.
+{{/if}}
 
-You are not allowed to create a new category, only select one from the list provided.
+You are not allowed to create a new category, only select one from the list provided for the given transaction type.
 
 Category:`,
 });
