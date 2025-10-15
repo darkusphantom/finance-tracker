@@ -27,7 +27,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Sparkles, Loader2, Camera } from 'lucide-react';
+import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon } from 'lucide-react';
 import { useState, useRef } from 'react';
 import {
   suggestCategoryAction,
@@ -38,6 +38,8 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { CurrencyCalculator } from './currency-calculator';
 
 const expenseCategories = [
   { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
@@ -91,6 +93,7 @@ export function AddTransactionForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -407,16 +410,29 @@ export function AddTransactionForm({
             )}
           />
         </div>
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isSubmitting || isScanning}
-        >
-          {(isSubmitting || isScanning) && (
-            <Loader2 className="animate-spin mr-2" />
-          )}
-          Add Transaction
-        </Button>
+        <div className="space-y-4">
+            <Button
+            type="submit"
+            className="w-full"
+            disabled={isSubmitting || isScanning}
+            >
+            {(isSubmitting || isScanning) && (
+                <Loader2 className="animate-spin mr-2" />
+            )}
+            Add Transaction
+            </Button>
+            <Collapsible open={showCalculator} onOpenChange={setShowCalculator}>
+                <CollapsibleTrigger asChild>
+                     <Button type="button" variant="outline" className="w-full">
+                        <CalculatorIcon />
+                        Mostrar Calculadora
+                    </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-4">
+                   <CurrencyCalculator showTitle={false} />
+                </CollapsibleContent>
+            </Collapsible>
+        </div>
       </form>
     </Form>
   );

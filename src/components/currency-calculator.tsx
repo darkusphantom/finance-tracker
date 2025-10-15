@@ -10,16 +10,23 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Loader2, AlertCircle, ArrowRightLeft } from 'lucide-react';
 
 const formatCurrency = (value: number, currency = 'VES') => {
-    if (isNaN(value)) return '...';
+    if (isNaN(value)) return '';
     return new Intl.NumberFormat('es-VE', {
       style: 'currency',
       currency: currency,
       minimumFractionDigits: 2,
     }).format(value);
-  };
+};
 
 type ExchangeRate = {
   fuente: string;
@@ -30,12 +37,15 @@ type ExchangeRate = {
   fechaActualizacion: string;
 };
 
-export function CurrencyConverter() {
+export function CurrencyCalculator({ showTitle = true }: { showTitle?: boolean }) {
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usdAmount, setUsdAmount] = useState<string>('1');
   const [vesAmount, setVesAmount] = useState<string>('');
+  const [selectedRateName, setSelectedRateName] = useState<string>('Oficial');
+  
+  const selectedRate = rates.find(r => r.nombre === selectedRateName) || rates.find(r => r.nombre === 'Oficial') || rates[0];
 
   useEffect(() => {
     const fetchRates = async () => {
@@ -48,10 +58,6 @@ export function CurrencyConverter() {
         }
         const data = await response.json();
         setRates(data);
-        // Set initial VES amount based on the first rate (usually 'Oficial')
-        if (data.length > 0) {
-            setVesAmount((1 * data[0].promedio).toFixed(2));
-        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -61,13 +67,23 @@ export function CurrencyConverter() {
 
     fetchRates();
   }, []);
+  
+  useEffect(() => {
+    if (selectedRate) {
+        const usdValue = parseFloat(usdAmount);
+        if (!isNaN(usdValue)) {
+            setVesAmount((usdValue * selectedRate.promedio).toFixed(2));
+        }
+    }
+  }, [usdAmount, selectedRate]);
+
 
   const handleUsdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setUsdAmount(value);
     const usdValue = parseFloat(value);
-    if (!isNaN(usdValue) && rates.length > 0) {
-      setVesAmount((usdValue * (rates[0]?.promedio || 0)).toFixed(2));
+    if (!isNaN(usdValue) && selectedRate) {
+      setVesAmount((usdValue * selectedRate.promedio).toFixed(2));
     } else {
         setVesAmount('');
     }
@@ -77,33 +93,24 @@ export function CurrencyConverter() {
     const value = e.target.value;
     setVesAmount(value);
     const vesValue = parseFloat(value);
-     if (!isNaN(vesValue) && rates.length > 0) {
-        setUsdAmount((vesValue / (rates[0]?.promedio || 1)).toFixed(2));
+     if (!isNaN(vesValue) && selectedRate) {
+        setUsdAmount((vesValue / selectedRate.promedio).toFixed(2));
     } else {
         setUsdAmount('');
     }
   };
 
-
-  const getConversionResults = () => {
-    const usd = parseFloat(usdAmount);
-    if (isNaN(usd) || rates.length === 0) return [];
-    
-    return rates.map(rate => ({
-        name: rate.nombre,
-        value: usd * rate.promedio,
-    }));
-  }
-
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Currency Converter</CardTitle>
-        <CardDescription>
-          Convert between USD and VEF using real-time rates.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+      {showTitle && (
+        <CardHeader>
+            <CardTitle>Currency Converter</CardTitle>
+            <CardDescription>
+            Convert between USD and VEF using real-time rates.
+            </CardDescription>
+        </CardHeader>
+      )}
+      <CardContent className="space-y-6 pt-6">
         {loading && (
           <div className="flex justify-center items-center h-20">
             <Loader2 className="animate-spin h-8 w-8 text-primary" />
@@ -117,9 +124,24 @@ export function CurrencyConverter() {
         )}
         {!loading && !error && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <div className="space-y-2">
+                <Label htmlFor="rate-select">Conversion Rate</Label>
+                <Select value={selectedRateName} onValueChange={setSelectedRateName}>
+                    <SelectTrigger id="rate-select">
+                        <SelectValue placeholder="Select a rate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {rates.map(rate => (
+                            <SelectItem key={rate.nombre} value={rate.nombre}>
+                                {rate.nombre} - {formatCurrency(rate.promedio)}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center">
               <div className="space-y-2">
-                <Label htmlFor="usd-input">USD Amount</Label>
+                <Label htmlFor="usd-input">USD</Label>
                 <Input
                   id="usd-input"
                   type="number"
@@ -128,8 +150,9 @@ export function CurrencyConverter() {
                   onChange={handleUsdChange}
                 />
               </div>
+              <ArrowRightLeft className="h-6 w-6 text-muted-foreground self-end mb-2 hidden md:block"/>
               <div className="space-y-2">
-                <Label htmlFor="ves-input">VEF Amount (Oficial)</Label>
+                <Label htmlFor="ves-input">VEF</Label>
                  <Input
                   id="ves-input"
                   type="number"
@@ -137,17 +160,6 @@ export function CurrencyConverter() {
                   value={vesAmount}
                   onChange={handleVesChange}
                 />
-              </div>
-            </div>
-            <div>
-              <h3 className="text-md font-semibold mb-2 text-center">Conversion Results</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                {getConversionResults().map(result => (
-                    <div key={result.name} className="p-4 border rounded-lg">
-                        <p className="text-sm text-muted-foreground">{result.name}</p>
-                        <p className="text-xl font-bold">{formatCurrency(result.value, 'VES')}</p>
-                    </div>
-                ))}
               </div>
             </div>
           </>
