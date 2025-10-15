@@ -39,7 +39,9 @@ const prompt = ai.definePrompt({
 
 Description: {{{description}}}
 
-Choose one of the following categories: 'Income', 'Housing', 'Food & Drink', 'Utilities', 'Transport', 'Entertainment', 'Health', 'Personal Care', 'Shopping', 'Debt Payment', 'Other'.
+Choose ONLY one of the following categories: 'Rent/Mortgage', 'Food & Drink (Groceries)', 'Dining Out', 'Health', 'Personal Care', 'Medicine', 'Transportation', 'Retail', 'Clothes', 'Entertainment', 'Environment Work', 'Technology', 'Education', 'Utilities', 'Insurance', 'Other', 'Debt Payment', 'Prestamo', 'Gift', 'Others'.
+
+You are not allowed to create a new category, only select one from the list provided.
 
 Category:`,
 });

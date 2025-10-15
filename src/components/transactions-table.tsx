@@ -46,16 +46,24 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const categories = [
-  'Income',
-  'Housing',
-  'Food & Drink',
-  'Utilities',
-  'Transport',
-  'Entertainment',
+  'Rent/Mortgage',
+  'Food & Drink (Groceries)',
+  'Dining Out',
   'Health',
   'Personal Care',
-  'Shopping',
+  'Medicine',
+  'Transportation',
+  'Retail',
+  'Clothes',
+  'Entertainment',
+  'Environment Work',
+  'Technology',
+  'Education',
+  'Utilities',
+  'Insurance',
   'Debt Payment',
+  'Prestamo',
+  'Gift',
   'Other',
 ];
 

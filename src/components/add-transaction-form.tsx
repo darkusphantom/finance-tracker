@@ -39,6 +39,28 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
+const categories = [
+  'Rent/Mortgage',
+  'Food & Drink (Groceries)',
+  'Dining Out',
+  'Health',
+  'Personal Care',
+  'Medicine',
+  'Transportation',
+  'Retail',
+  'Clothes',
+  'Entertainment',
+  'Environment Work',
+  'Technology',
+  'Education',
+  'Utilities',
+  'Insurance',
+  'Debt Payment',
+  'Prestamo',
+  'Gift',
+  'Other',
+];
+
 const formSchema = z.object({
   description: z.string().min(2, {
     message: 'Description must be at least 2 characters.',
@@ -336,9 +358,20 @@ export function AddTransactionForm({
                     Suggest
                   </Button>
                 </div>
-                <FormControl>
-                  <Input placeholder="e.g., Food & Drink" {...field} value={field.value || ''} />
-                </FormControl>
+                 <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map(category => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 <FormMessage />
               </FormItem>
             )}
