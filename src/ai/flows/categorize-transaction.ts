@@ -45,7 +45,7 @@ const prompt = ai.definePrompt({
 Description: {{{description}}}
 Transaction Type: {{{type}}}
 
-{{#if (eq type "income")}}
+{{#if (eq type 'income')}}
 Choose ONLY one of the following income categories: ${incomeCategories}.
 {{else}}
 Choose ONLY one of the following expense categories: ${expenseCategories}.
