@@ -40,25 +40,26 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
 const categories = [
-  'Rent/Mortgage',
-  'Food & Drink (Groceries)',
-  'Dining Out',
-  'Health',
-  'Personal Care',
-  'Medicine',
-  'Transportation',
-  'Retail',
-  'Clothes',
-  'Entertainment',
-  'Environment Work',
-  'Technology',
-  'Education',
-  'Utilities',
-  'Insurance',
-  'Debt Payment',
-  'Prestamo',
-  'Gift',
-  'Other',
+  { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
+  { value: 'Food & Drink (Groceries)', label: '🛒 Food & Drink (Groceries)' },
+  { value: 'Dining Out', label: '🍔 Dining Out' },
+  { value: 'Health', label: '❤️ Health' },
+  { value: 'Personal Care', label: '💅 Personal Care' },
+  { value: 'Medicine', label: '💊 Medicine' },
+  { value: 'Transportation', label: '🚗 Transportation' },
+  { value: 'Retail', label: '🛍️ Retail' },
+  { value: 'Clothes', label: '👕 Clothes' },
+  { value: 'Entertainment', label: '🎉 Entertainment' },
+  { value: 'Environment Work', label: '🌱 Environment Work' },
+  { value: 'Technology', label: '💻 Technology' },
+  { value: 'Education', label: '📚 Education' },
+  { value: 'Utilities', label: '💡 Utilities' },
+  { value: 'Insurance', label: '🛡️ Insurance' },
+  { value: 'Debt Payment', label: '💸 Debt Payment' },
+  { value: 'Prestamo', label: '🤝 Prestamo' },
+  { value: 'Gift', label: '🎁 Gift' },
+  { value: 'Other', label: '❓ Other' },
+  { value: 'Others', label: '❓ Others' },
 ];
 
 const formSchema = z.object({
@@ -366,8 +367,8 @@ export function AddTransactionForm({
                     </FormControl>
                     <SelectContent>
                       {categories.map(category => (
-                        <SelectItem key={category} value={category}>
-                          {category}
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

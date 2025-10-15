@@ -27,7 +27,6 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { isRedirectError } from 'next/navigation';
 import bcrypt from 'bcrypt';
 
 const loginSchema = z.object({
