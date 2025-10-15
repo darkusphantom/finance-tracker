@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
-const categories = [
+const expenseCategories = [
   { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
   { value: 'Food & Drink (Groceries)', label: '🛒 Food & Drink (Groceries)' },
   { value: 'Dining Out', label: '🍔 Dining Out' },
@@ -61,6 +61,17 @@ const categories = [
   { value: 'Other', label: '❓ Other' },
   { value: 'Others', label: '❓ Others' },
 ];
+
+const incomeCategories = [
+    { value: 'Salary', label: '💼 Salary' },
+    { value: 'Bonus', label: '🏆 Bonus' },
+    { value: 'Freelance', label: '✍️ Freelance' },
+    { value: 'Dividends', label: '📈 Dividends' },
+    { value: 'Interest', label: '💰 Interest' },
+    { value: 'Side Hustle', label: '🚀 Side Hustle' },
+    { value: 'Loan', label: '🏦 Loan' },
+];
+
 
 const formSchema = z.object({
   description: z.string().min(2, {
@@ -94,6 +105,14 @@ export function AddTransactionForm({
       date: new Date(),
     },
   });
+  
+  const transactionType = useWatch({
+    control: form.control,
+    name: 'type',
+  });
+  
+  const categories = transactionType === 'income' ? incomeCategories : expenseCategories;
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -175,13 +194,18 @@ export function AddTransactionForm({
           description: 'Transaction details have been filled in.',
         });
         // Automatically suggest a category after scanning
-        const categoryResult = await suggestCategoryAction({
-          description: result.data.description,
-        });
-        if (categoryResult.category) {
-          form.setValue('category', categoryResult.category, {
-            shouldValidate: true,
-          });
+        if (result.data.type === 'expense') {
+            const categoryResult = await suggestCategoryAction({
+                description: result.data.description,
+            });
+            if (categoryResult.category) {
+                form.setValue('category', categoryResult.category, {
+                    shouldValidate: true,
+                });
+            }
+        } else {
+            // Reset category if it's an income scan
+            form.setValue('category', '');
         }
       } else if (result.error) {
         toast({
@@ -260,7 +284,10 @@ export function AddTransactionForm({
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(date) => {
+                        field.onChange(date)
+                        form.clearErrors('date');
+                      }}
                       disabled={date =>
                         date > new Date() || date < new Date('1900-01-01')
                       }
@@ -317,7 +344,10 @@ export function AddTransactionForm({
                 <FormItem>
                   <FormLabel>Type</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={(value) => {
+                        field.onChange(value)
+                        form.setValue('category', '')
+                    }}
                     defaultValue={field.value}
                     value={field.value}
                   >
@@ -344,6 +374,7 @@ export function AddTransactionForm({
               <FormItem>
                 <div className="flex justify-between items-center">
                   <FormLabel>Category</FormLabel>
+                  {transactionType === 'expense' && (
                   <Button
                     type="button"
                     variant="outline"
@@ -358,6 +389,7 @@ export function AddTransactionForm({
                     )}
                     Suggest
                   </Button>
+                  )}
                 </div>
                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>

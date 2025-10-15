@@ -45,7 +45,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-const categories = [
+const expenseCategories = [
   { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
   { value: 'Food & Drink (Groceries)', label: '🛒 Food & Drink (Groceries)' },
   { value: 'Dining Out', label: '🍔 Dining Out' },
@@ -68,8 +68,21 @@ const categories = [
   { value: 'Others', label: '❓ Others' },
 ];
 
+const incomeCategories = [
+    { value: 'Salary', label: '💼 Salary' },
+    { value: 'Bonus', label: '🏆 Bonus' },
+    { value: 'Freelance', label: '✍️ Freelance' },
+    { value: 'Dividends', label: '📈 Dividends' },
+    { value: 'Interest', label: '💰 Interest' },
+    { value: 'Side Hustle', label: '🚀 Side Hustle' },
+    { value: 'Loan', label: '🏦 Loan' },
+];
+
+const allCategories = [...expenseCategories, ...incomeCategories];
+
+
 const getCategoryLabel = (value: string) => {
-    const category = categories.find(c => c.value === value);
+    const category = allCategories.find(c => c.value === value);
     return category ? category.label : value;
 }
 
@@ -182,99 +195,102 @@ export function TransactionsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedTransactions.map(transaction => (
-              <TableRow key={transaction.id}>
-                <TableCell>
-                  <Input
-                    type="date"
-                    value={transaction.date}
-                    onChange={e =>
-                      handleInputChange(transaction.id, 'date', e.target.value)
-                    }
-                    className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    value={transaction.description}
-                    onChange={e =>
-                      handleInputChange(
-                        transaction.id,
-                        'description',
-                        e.target.value
-                      )
-                    }
-                    className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={transaction.category}
-                    onValueChange={value =>
-                      handleInputChange(transaction.id, 'category', value)
-                    }
-                  >
-                    <SelectTrigger className="w-[180px] border-none bg-transparent p-0 h-auto focus:ring-0">
-                      <Badge variant="outline">
-                        <SelectValue placeholder="Select category" >
-                            {getCategoryLabel(transaction.category)}
-                        </SelectValue>
-                      </Badge>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(category => (
-                        <SelectItem key={category.value} value={category.value}>
-                          {category.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="number"
-                    value={transaction.amount}
-                    onChange={e =>
-                      handleInputChange(
-                        transaction.id,
-                        'amount',
-                        e.target.value
-                      )
-                    }
-                    className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${
-                      transaction.amount >= 0
-                        ? 'text-primary'
-                        : 'text-destructive'
-                    }`}
-                  />
-                </TableCell>
-                <TableCell className="text-right">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete this transaction.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => deleteRow(transaction.id)}
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </TableCell>
-              </TableRow>
-            ))}
+            {paginatedTransactions.map(transaction => {
+              const categoriesForType = transaction.type === 'income' ? incomeCategories : expenseCategories;
+              return (
+                <TableRow key={transaction.id}>
+                  <TableCell>
+                    <Input
+                      type="date"
+                      value={transaction.date}
+                      onChange={e =>
+                        handleInputChange(transaction.id, 'date', e.target.value)
+                      }
+                      className="font-medium border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={transaction.description}
+                      onChange={e =>
+                        handleInputChange(
+                          transaction.id,
+                          'description',
+                          e.target.value
+                        )
+                      }
+                      className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={transaction.category}
+                      onValueChange={value =>
+                        handleInputChange(transaction.id, 'category', value)
+                      }
+                    >
+                      <SelectTrigger className="w-[180px] border-none bg-transparent p-0 h-auto focus:ring-0">
+                        <Badge variant="outline">
+                          <SelectValue placeholder="Select category" >
+                              {getCategoryLabel(transaction.category)}
+                          </SelectValue>
+                        </Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categoriesForType.map(category => (
+                          <SelectItem key={category.value} value={category.value}>
+                            {category.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={transaction.amount}
+                      onChange={e =>
+                        handleInputChange(
+                          transaction.id,
+                          'amount',
+                          e.target.value
+                        )
+                      }
+                      className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${
+                        transaction.type === 'income'
+                          ? 'text-primary'
+                          : 'text-destructive'
+                      }`}
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete this transaction.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteRow(transaction.id)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
         {totalPages > 1 && (
