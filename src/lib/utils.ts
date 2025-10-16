@@ -39,6 +39,7 @@ export const transformAccountData = (notionPages: any[]): any[] => {
       type: getProperty(props['Account Type']) || 'Other',
       balance: getProperty(props['Balance Amount']) || 0,
       isActive: getProperty(props['Is Active']) || false,
+      currency: getProperty(props.Currency) || 'USD',
     };
   });
 };
