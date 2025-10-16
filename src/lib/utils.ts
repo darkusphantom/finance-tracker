@@ -76,15 +76,11 @@ export const transformTransactionData = (notionPages: any[]): any[] => {
     // The type is now passed with the page object from getAllTransactions
     const type = (page as any).type;
 
-    // For display purposes, expenses are shown as negative, income as positive
-    const displayAmount =
-      type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
-
     return {
       id: page.id,
       date: getProperty(props.Date) || new Date().toISOString().split('T')[0],
       description: getProperty(props.Source) || 'N/A',
-      amount: displayAmount,
+      amount: amount,
       type: type, // 'income' or 'expense'
       category: getProperty(props.Tags) || 'Other',
     };
