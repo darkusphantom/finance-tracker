@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { registerAction } from '@/app/actions';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -27,7 +27,7 @@ const formSchema = z.object({
 });
 
 export function RegisterForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -40,27 +40,24 @@ export function RegisterForm() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-    const result = await registerAction(values);
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    startTransition(async () => {
+      const result = await registerAction(values);
 
-    if (result?.error) {
-      toast({
-        title: 'Registro Fallido',
-        description: result.error,
-        variant: 'destructive',
-      });
-    } else {
+      if (result?.error) {
         toast({
-          title: '¡Registro Exitoso!',
-          description: 'Ya puedes iniciar sesión con tu nueva cuenta.',
+          title: 'Registro Fallido',
+          description: result.error,
+          variant: 'destructive',
         });
-        // The redirect is handled by the server action
-    }
-    
-    // In case of error, we stop the loading state. 
-    // If successful, the redirect will unmount the component anyway.
-    setIsSubmitting(false);
+      } else if (result?.success) {
+          toast({
+            title: '¡Registro Exitoso!',
+            description: 'Ya puedes iniciar sesión con tu nueva cuenta.',
+          });
+          router.push('/login?registered=true');
+      }
+    });
   }
 
   return (
@@ -105,8 +102,8 @@ export function RegisterForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="animate-spin mr-2" />}
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending && <Loader2 className="animate-spin mr-2" />}
           Crear Cuenta
         </Button>
       </form>

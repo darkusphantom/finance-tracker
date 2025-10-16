@@ -67,7 +67,8 @@ export async function loginAction(values: unknown) {
     };
   }
 
-  redirect('/dashboard');
+  // Redirect is handled on the client-side after successful login
+  return { success: true };
 }
 
 const registerSchema = z.object({
@@ -101,7 +102,7 @@ export async function registerAction(values: unknown) {
         error.message || 'An unexpected error occurred during registration.',
     };
   }
-  redirect('/login?registered=true');
+  return { success: true };
 }
 
 export async function logoutAction() {
