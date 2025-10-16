@@ -300,9 +300,9 @@ export function AccountBalances({
                 <TableRow key={account.id}>
                   <TableCell>
                     <Checkbox
-                        checked={account.isActive}
+                        checked={!account.isActive}
                         onCheckedChange={value =>
-                            isEditable && handleInputChange(account.id, 'isActive', value)
+                            isEditable && handleInputChange(account.id, 'isActive', !value)
                         }
                         disabled={!isEditable}
                     />
