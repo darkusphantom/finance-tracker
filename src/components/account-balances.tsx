@@ -52,9 +52,10 @@ type ExchangeRate = {
 };
 
 const formatCurrency = (value: number, currency: string) => {
+    const displayCurrency = currency === 'USDT' ? 'USD' : currency;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency: displayCurrency,
     }).format(value);
 };
 
@@ -296,6 +297,7 @@ export function AccountBalances({
           <TableBody>
             {paginatedAccounts.map(account => {
               const Icon = getIcon(account.type);
+              const displayCurrency = account.currency === 'USDT' ? 'USD' : account.currency;
               return (
                 <TableRow key={account.id}>
                   <TableCell>
@@ -397,7 +399,7 @@ export function AccountBalances({
                       >
                         {new Intl.NumberFormat('en-US', {
                           style: 'currency',
-                          currency: account.currency,
+                          currency: displayCurrency,
                         }).format(account.balance)}
                       </span>
                     )}

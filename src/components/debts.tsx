@@ -246,7 +246,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
                     </AlertDialog>
               )}
             </div>
-            <Progress value={(debt.paid / debt.total) * 100} />
+            <Progress value={debt.total > 0 ? (debt.paid / debt.total) * 100 : 0} />
           </div>
         ))}
         </div>

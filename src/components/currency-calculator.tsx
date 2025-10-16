@@ -21,9 +21,10 @@ import { Loader2, AlertCircle, ArrowRightLeft } from 'lucide-react';
 
 const formatCurrency = (value: number, currency = 'VES') => {
     if (isNaN(value)) return '';
+    const displayCurrency = currency === 'USDT' ? 'USD' : currency;
     return new Intl.NumberFormat('es-VE', {
       style: 'currency',
-      currency: currency,
+      currency: displayCurrency,
       minimumFractionDigits: 2,
     }).format(value);
 };
