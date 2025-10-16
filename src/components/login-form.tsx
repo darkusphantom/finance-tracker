@@ -14,9 +14,10 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { loginAction } from '@/app/actions';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   loginIdentifier: z.string().min(1, { message: 'Username or Email is required.' }),
@@ -24,8 +25,9 @@ const formSchema = z.object({
 });
 
 export function LoginForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -35,18 +37,20 @@ export function LoginForm() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-    const result = await loginAction(values);
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    startTransition(async () => {
+      const result = await loginAction(values);
 
-    if (result?.error) {
-      toast({
-        title: 'Login Failed',
-        description: result.error,
-        variant: 'destructive',
-      });
-      setIsSubmitting(false);
-    }
+      if (result?.error) {
+        toast({
+          title: 'Login Failed',
+          description: result.error,
+          variant: 'destructive',
+        });
+      } else if (result?.success) {
+        router.push('/dashboard');
+      }
+    });
   }
 
   return (
@@ -78,8 +82,8 @@ export function LoginForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="animate-spin mr-2" />}
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending && <Loader2 className="animate-spin mr-2" />}
           Iniciar Sesión
         </Button>
       </form>

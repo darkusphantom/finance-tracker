@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,7 +27,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Sparkles, Loader2, Camera } from 'lucide-react';
+import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon } from 'lucide-react';
 import { useState, useRef } from 'react';
 import {
   suggestCategoryAction,
@@ -38,6 +38,42 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { CurrencyCalculator } from './currency-calculator';
+
+const expenseCategories = [
+  { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
+  { value: 'Food & Drink (Groceries)', label: '🛒 Food & Drink (Groceries)' },
+  { value: 'Dining Out', label: '🍔 Dining Out' },
+  { value: 'Health', label: '❤️ Health' },
+  { value: 'Personal Care', label: '💅 Personal Care' },
+  { value: 'Medicine', label: '💊 Medicine' },
+  { value: 'Transportation', label: '🚗 Transportation' },
+  { value: 'Retail', label: '🛍️ Retail' },
+  { value: 'Clothes', label: '👕 Clothes' },
+  { value: 'Entertainment', label: '🎉 Entertainment' },
+  { value: 'Environment Work', label: '🌱 Environment Work' },
+  { value: 'Technology', label: '💻 Technology' },
+  { value: 'Education', label: '📚 Education' },
+  { value: 'Utilities', label: '💡 Utilities' },
+  { value: 'Insurance', label: '🛡️ Insurance' },
+  { value: 'Debt Payment', label: '💸 Debt Payment' },
+  { value: 'Prestamo', label: '🤝 Prestamo' },
+  { value: 'Gift', label: '🎁 Gift' },
+  { value: 'Other', label: '❓ Other' },
+  { value: 'Others', label: '❓ Others' },
+];
+
+const incomeCategories = [
+    { value: 'Salary', label: '💼 Salary' },
+    { value: 'Bonus', label: '🏆 Bonus' },
+    { value: 'Freelance', label: '✍️ Freelance' },
+    { value: 'Dividends', label: '📈 Dividends' },
+    { value: 'Interest', label: '💰 Interest' },
+    { value: 'Side Hustle', label: '🚀 Side Hustle' },
+    { value: 'Loan', label: '🏦 Loan' },
+];
+
 
 const formSchema = z.object({
   description: z.string().min(2, {
@@ -57,6 +93,7 @@ export function AddTransactionForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -71,6 +108,14 @@ export function AddTransactionForm({
       date: new Date(),
     },
   });
+  
+  const transactionType = useWatch({
+    control: form.control,
+    name: 'type',
+  });
+  
+  const categories = transactionType === 'income' ? incomeCategories : expenseCategories;
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -103,6 +148,7 @@ export function AddTransactionForm({
   async function handleSuggestCategory() {
     setIsSuggesting(true);
     const description = form.getValues('description');
+    const type = form.getValues('type');
     if (!description || description.length < 2) {
       form.setError('description', {
         message: 'Please enter a description first.',
@@ -111,7 +157,7 @@ export function AddTransactionForm({
       return;
     }
 
-    const result = await suggestCategoryAction({ description });
+    const result = await suggestCategoryAction({ description, type });
     if (result.category) {
       form.setValue('category', result.category, { shouldValidate: true });
       toast({
@@ -142,23 +188,26 @@ export function AddTransactionForm({
       const result = await extractTransactionAction({ photoDataUri });
 
       if (result.data) {
-        form.setValue('description', result.data.description, {
+        const {description, amount, type} = result.data;
+        form.setValue('description', description, {
           shouldValidate: true,
         });
-        form.setValue('amount', result.data.amount, { shouldValidate: true });
-        form.setValue('type', result.data.type, { shouldValidate: true });
+        form.setValue('amount', amount, { shouldValidate: true });
+        form.setValue('type', type, { shouldValidate: true });
         toast({
           title: 'Scan Successful!',
           description: 'Transaction details have been filled in.',
         });
+
         // Automatically suggest a category after scanning
         const categoryResult = await suggestCategoryAction({
-          description: result.data.description,
+            description: description,
+            type: type,
         });
         if (categoryResult.category) {
-          form.setValue('category', categoryResult.category, {
-            shouldValidate: true,
-          });
+            form.setValue('category', categoryResult.category, {
+                shouldValidate: true,
+            });
         }
       } else if (result.error) {
         toast({
@@ -237,7 +286,10 @@ export function AddTransactionForm({
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(date) => {
+                        field.onChange(date)
+                        form.clearErrors('date');
+                      }}
                       disabled={date =>
                         date > new Date() || date < new Date('1900-01-01')
                       }
@@ -294,7 +346,10 @@ export function AddTransactionForm({
                 <FormItem>
                   <FormLabel>Type</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={(value) => {
+                        field.onChange(value)
+                        form.setValue('category', '')
+                    }}
                     defaultValue={field.value}
                     value={field.value}
                   >
@@ -336,24 +391,48 @@ export function AddTransactionForm({
                     Suggest
                   </Button>
                 </div>
-                <FormControl>
-                  <Input placeholder="e.g., Food & Drink" {...field} value={field.value || ''} />
-                </FormControl>
+                 <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map(category => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={isSubmitting || isScanning}
-        >
-          {(isSubmitting || isScanning) && (
-            <Loader2 className="animate-spin mr-2" />
-          )}
-          Add Transaction
-        </Button>
+        <div className="space-y-4">
+            <Button
+            type="submit"
+            className="w-full"
+            disabled={isSubmitting || isScanning}
+            >
+            {(isSubmitting || isScanning) && (
+                <Loader2 className="animate-spin mr-2" />
+            )}
+            Add Transaction
+            </Button>
+            <Collapsible open={showCalculator} onOpenChange={setShowCalculator}>
+                <CollapsibleTrigger asChild>
+                     <Button type="button" variant="outline" className="w-full">
+                        <CalculatorIcon />
+                        Mostrar Calculadora
+                    </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-4">
+                   <CurrencyCalculator showTitle={false} />
+                </CollapsibleContent>
+            </Collapsible>
+        </div>
       </form>
     </Form>
   );

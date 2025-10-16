@@ -2,6 +2,7 @@
 
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { AddTransactionSheet } from './add-transaction-sheet';
 
 export function DashboardClientLayout({
   children,
@@ -17,6 +18,7 @@ export function DashboardClientLayout({
             Dashboard
           </h1>
         </div>
+         <AddTransactionSheet />
       </header>
       {children}
     </DashboardLayout>

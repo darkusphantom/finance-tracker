@@ -1,5 +1,4 @@
 import { AccountBalances } from '@/components/account-balances';
-import { AddTransactionSheet } from '@/components/add-transaction-sheet';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { getAccounts } from '@/lib/notion';

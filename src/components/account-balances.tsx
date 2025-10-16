@@ -42,8 +42,22 @@ import { Checkbox } from './ui/checkbox';
 import { addAccountAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { Separator } from './ui/separator';
 
 const accountTypes = ['Corriente', 'Ahorro', 'Fisico', 'Credit', 'Investment'];
+const currencies = ['USD', 'VES', 'USDT'];
+
+type ExchangeRate = {
+  promedio: number;
+};
+
+const formatCurrency = (value: number, currency: string) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(value);
+};
+
 
 export function AccountBalances({
   isEditable = true,
@@ -57,6 +71,9 @@ export function AccountBalances({
   const [sort, setSort] = useState({ key: 'name', order: 'asc' });
   const [page, setPage] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [officialRate, setOfficialRate] = useState<number | null>(null);
+  const [rateLoading, setRateLoading] = useState(true);
+
   const itemsPerPage = isEditable ? 15 : 10;
   const { toast } = useToast();
   const router = useRouter();
@@ -64,6 +81,54 @@ export function AccountBalances({
   useEffect(() => {
     setAccounts([...initialAccounts]);
   }, [initialAccounts]);
+
+  useEffect(() => {
+    const fetchRate = async () => {
+      try {
+        setRateLoading(true);
+        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+        if (!response.ok) {
+          throw new Error('Failed to fetch exchange rate.');
+        }
+        const data: ExchangeRate = await response.json();
+        setOfficialRate(data.promedio);
+      } catch (err) {
+        console.error(err);
+        toast({
+            title: 'Error fetching rate',
+            description: 'Could not fetch the official exchange rate.',
+            variant: 'destructive',
+        });
+      } finally {
+        setRateLoading(false);
+      }
+    };
+    fetchRate();
+  }, [toast]);
+
+
+  const { totalBalanceUSD, totalBalanceVES } = useMemo(() => {
+    if (!officialRate) return { totalBalanceUSD: 0, totalBalanceVES: 0 };
+    
+    const totalUSD = accounts.reduce((acc, account) => {
+        if (!account.isActive) return acc;
+        switch (account.currency) {
+            case 'USD':
+            case 'USDT':
+                return acc + account.balance;
+            case 'VES':
+                return acc + (account.balance / officialRate);
+            default:
+                return acc;
+        }
+    }, 0);
+
+    return {
+        totalBalanceUSD: totalUSD,
+        totalBalanceVES: totalUSD * officialRate,
+    }
+
+  }, [accounts, officialRate]);
 
   const handleSort = (key: string) => {
     if (!isEditable) return;
@@ -74,25 +139,25 @@ export function AccountBalances({
   };
 
   const sortedAndFilteredAccounts = useMemo(() => {
-    if (!isEditable) {
-      return accounts.slice(0, itemsPerPage);
+    let filtered = accounts;
+    if (isEditable) {
+        filtered = accounts.filter(account =>
+            account.name.toLowerCase().includes(filter.toLowerCase())
+        );
     }
-    return accounts
-      .filter(account =>
-        account.name.toLowerCase().includes(filter.toLowerCase())
-      )
-      .sort((a, b) => {
+    
+    return filtered.sort((a, b) => {
         const aValue = a[sort.key as keyof typeof a];
         const bValue = b[sort.key as keyof typeof a];
         if (aValue < bValue) return sort.order === 'asc' ? -1 : 1;
         if (aValue > bValue) return sort.order === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [accounts, filter, sort, isEditable, itemsPerPage]);
+  }, [accounts, filter, sort, isEditable]);
 
   const paginatedAccounts = useMemo(() => {
     if (!isEditable) {
-      return sortedAndFilteredAccounts;
+      return sortedAndFilteredAccounts.slice(0, itemsPerPage);
     }
     const startIndex = (page - 1) * itemsPerPage;
     return sortedAndFilteredAccounts.slice(startIndex, startIndex + itemsPerPage);
@@ -155,19 +220,31 @@ export function AccountBalances({
 
   return (
     <Card>
-      <CardHeader className='flex-row justify-between items-center'>
-        <div>
-            <CardTitle>Account Balances</CardTitle>
-            <CardDescription>
-            A live look at your connected account balances.
-            </CardDescription>
+      <CardHeader>
+        <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center'>
+            <div>
+                <CardTitle>Account Balances</CardTitle>
+                <CardDescription>
+                A live look at your connected account balances.
+                </CardDescription>
+            </div>
+            {isEditable && (
+                <Button onClick={handleAddNewAccount} disabled={isAdding} className="mt-4 sm:mt-0">
+                    {isAdding ? <Loader2 className='animate-spin' /> : <PlusCircle />}
+                    Add Account
+                </Button>
+            )}
         </div>
-        {isEditable && (
-            <Button onClick={handleAddNewAccount} disabled={isAdding}>
-                {isAdding ? <Loader2 className='animate-spin' /> : <PlusCircle />}
-                Add Account
-            </Button>
-        )}
+        <Separator className="my-4" />
+        <div className="text-center sm:text-left">
+            <p className="text-sm text-muted-foreground">Total Balance</p>
+            {rateLoading ? <Loader2 className="animate-spin h-8 w-8 mx-auto sm:mx-0" /> : (
+                <>
+                    <p className="text-3xl font-bold">{formatCurrency(totalBalanceUSD, 'USD')}</p>
+                    <p className="text-md text-muted-foreground">{formatCurrency(totalBalanceVES, 'VES')} (1 USD ≈ {officialRate?.toFixed(2)} VES)</p>
+                </>
+            )}
+        </div>
       </CardHeader>
       <CardContent>
         {isEditable && (
@@ -179,40 +256,39 @@ export function AccountBalances({
              />
            </div>
         )}
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>
-                 {isEditable ? (
-                    <Button variant="ghost" onClick={() => handleSort('isActive')}>
-                      Paused
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                 ) : "Paused"}
+                 <Button variant="ghost" onClick={() => handleSort('isActive')}>
+                    Paused
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                 </Button>
               </TableHead>
               <TableHead>
-                {isEditable ? (
-                    <Button variant="ghost" onClick={() => handleSort('name')}>
-                      Account
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                ) : "Account"}
+                <Button variant="ghost" onClick={() => handleSort('name')}>
+                    Account
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
               </TableHead>
               <TableHead>
-                {isEditable ? (
-                    <Button variant="ghost" onClick={() => handleSort('type')}>
-                      Type
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                ) : "Type"}
+                <Button variant="ghost" onClick={() => handleSort('type')}>
+                    Type
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
               </TableHead>
               <TableHead>
-                {isEditable ? (
-                  <Button variant="ghost" onClick={() => handleSort('balance')}>
+                <Button variant="ghost" onClick={() => handleSort('currency')}>
+                    Currency
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button variant="ghost" onClick={() => handleSort('balance')}>
                     Balance
                     <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                ) : "Balance"}
+                </Button>
               </TableHead>
               {isEditable && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
@@ -224,9 +300,9 @@ export function AccountBalances({
                 <TableRow key={account.id}>
                   <TableCell>
                     <Checkbox
-                        checked={account.isActive}
+                        checked={!account.isActive}
                         onCheckedChange={value =>
-                            isEditable && handleInputChange(account.id, 'isActive', value)
+                            isEditable && handleInputChange(account.id, 'isActive', !value)
                         }
                         disabled={!isEditable}
                     />
@@ -271,6 +347,29 @@ export function AccountBalances({
                     )}
                   </TableCell>
                   <TableCell>
+                     {isEditable ? (
+                      <Select
+                        value={account.currency}
+                        onValueChange={value =>
+                          handleInputChange(account.id, 'currency', value)
+                        }
+                      >
+                        <SelectTrigger className="w-[100px] border-none bg-transparent p-0 h-auto focus:ring-0">
+                           <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map(c => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span>{account.currency}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {isEditable ? (
                       <Input
                         type="number"
@@ -298,7 +397,7 @@ export function AccountBalances({
                       >
                         {new Intl.NumberFormat('en-US', {
                           style: 'currency',
-                          currency: 'USD',
+                          currency: account.currency,
                         }).format(account.balance)}
                       </span>
                     )}
@@ -336,6 +435,7 @@ export function AccountBalances({
             })}
           </TableBody>
         </Table>
+        </div>
         {isEditable && totalPages > 1 && (
           <div className="flex justify-between items-center mt-4">
             <Button

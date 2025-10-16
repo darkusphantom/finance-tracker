@@ -39,6 +39,7 @@ export const transformAccountData = (notionPages: any[]): any[] => {
       type: getProperty(props['Account Type']) || 'Other',
       balance: getProperty(props['Balance Amount']) || 0,
       isActive: getProperty(props['Is Active']) || false,
+      currency: getProperty(props.Currency) || 'USD',
     };
   });
 };
@@ -75,15 +76,11 @@ export const transformTransactionData = (notionPages: any[]): any[] => {
     // The type is now passed with the page object from getAllTransactions
     const type = (page as any).type;
 
-    // For display purposes, expenses are shown as negative, income as positive
-    const displayAmount =
-      type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
-
     return {
       id: page.id,
       date: getProperty(props.Date) || new Date().toISOString().split('T')[0],
       description: getProperty(props.Source) || 'N/A',
-      amount: displayAmount,
+      amount: amount,
       type: type, // 'income' or 'expense'
       category: getProperty(props.Tags) || 'Other',
     };
@@ -108,41 +105,31 @@ export const transformScheduledPaymentsData = (notionPages: any[]): any[] => {
   });
 };
 
-export const calculateFinancialSummary = (transactions: any[]) => {
-  const now = new Date();
-  const currentMonth = getMonth(now);
-  const currentYear = getYear(now);
-
-  // Current Month's Summary
-  const currentMonthTransactions = transactions.filter(t => {
+export const calculateFinancialSummary = (transactions: any[], year: number) => {
+  const yearTransactions = transactions.filter(t => {
     const date = new Date(t.date);
-    return getMonth(date) === currentMonth && getYear(date) === currentYear;
+    return getYear(date) === year;
   });
 
-  const currentMonthIncome = currentMonthTransactions
+  const annualTotalIncome = yearTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const currentMonthExpenses = Math.abs(
-    currentMonthTransactions
+  const annualTotalExpenses = Math.abs(
+    yearTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0)
   );
+  
+  const annualNet = annualTotalIncome - annualTotalExpenses;
 
-  const currentMonthNet = currentMonthIncome - currentMonthExpenses;
+  // Annual Summary for chart
+  const months = Array.from({ length: 12 }, (_, i) => i); // 0-11
 
-  // Annual Summary (last 12 months)
-  const last12Months = Array.from({ length: 12 }, (_, i) => {
-    return startOfMonth(subMonths(now, i));
-  }).reverse();
-
-  const annualChartData = last12Months.map(monthStartDate => {
-    const month = getMonth(monthStartDate);
-    const year = getYear(monthStartDate);
-
-    const monthTransactions = transactions.filter(t => {
+  const annualChartData = months.map(month => {
+    const monthTransactions = yearTransactions.filter(t => {
       const date = new Date(t.date);
-      return getMonth(date) === month && getYear(date) === year;
+      return getMonth(date) === month;
     });
 
     const income = monthTransactions
@@ -158,7 +145,7 @@ export const calculateFinancialSummary = (transactions: any[]) => {
     const net = income - expenses;
 
     return {
-      month: format(monthStartDate, 'MMM'),
+      month: format(new Date(year, month), 'MMM'),
       income,
       expenses,
       net,
@@ -166,9 +153,9 @@ export const calculateFinancialSummary = (transactions: any[]) => {
   });
 
   return {
-    currentMonthIncome,
-    currentMonthExpenses,
-    currentMonthNet,
+    annualTotalIncome,
+    annualTotalExpenses,
+    annualNet,
     annualChartData,
   };
 };

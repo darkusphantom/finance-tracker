@@ -3,7 +3,6 @@ import { Debts } from '@/components/debts';
 import { FinancialChart } from '@/components/financial-chart';
 import { getAccounts, getAllTransactions, getDebts } from '@/lib/notion';
 import {
-  calculateFinancialSummary,
   transformAccountData,
   transformDebtData,
   transformTransactionData,
@@ -24,12 +23,11 @@ export default async function DashboardPage() {
     process.env.NOTION_INCOME_DB!
   );
   const transactions = transformTransactionData(rawTransactions);
-  const financialSummary = calculateFinancialSummary(transactions);
 
   return (
     <DashboardClientLayout>
       <main className="space-y-6">
-        <FinancialChart summary={financialSummary} />
+        <FinancialChart transactions={transactions} />
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2">
             <AccountBalances isEditable={false} initialAccounts={accounts} />

@@ -1,5 +1,5 @@
 import { AddTransactionSheet } from '@/components/add-transaction-sheet';
-import { CurrencyConverter } from '@/components/currency-converter';
+import { CurrencyCalculator } from '@/components/currency-calculator';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { FinancialCalculators } from '@/components/financial-calculators';
 import { Separator } from '@/components/ui/separator';
@@ -18,7 +18,7 @@ export default function CalculatorPage() {
         <AddTransactionSheet />
       </header>
       <main className="space-y-6">
-        <CurrencyConverter />
+        <CurrencyCalculator />
         <Separator />
         <FinancialCalculators />
       </main>
