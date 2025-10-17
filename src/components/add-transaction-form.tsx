@@ -40,7 +40,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon } from 'lucide-react';
+import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import {
   suggestCategoryAction,
@@ -99,7 +99,7 @@ const formSchema = z.object({
   date: z.date(),
 });
 
-type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number];
+type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string };
 
 
 export function AddTransactionForm({
@@ -145,8 +145,8 @@ export function AddTransactionForm({
         title: 'Transaction Added',
         description: `Your transaction has been added.`,
       });
-      router.refresh(); // Refresh the page to show the new transaction
-      setShowContinueDialog(true); // Ask user if they want to add another
+      router.refresh(); 
+      setShowContinueDialog(true); 
     } else {
       toast({
         title: 'Submission Failed',
@@ -205,9 +205,9 @@ export function AddTransactionForm({
             form.setValue('description', description, { shouldValidate: true });
             form.setValue('amount', amount, { shouldValidate: true });
             form.setValue('type', type, { shouldValidate: true });
-            handleSuggestCategory(); // Automatically suggest after filling
+            handleSuggestCategory();
         } else {
-            setScannedTransactions(result.data);
+            setScannedTransactions(result.data.map((item, index) => ({...item, id: `scanned-${index}`})));
         }
         toast({
           title: 'Scan Successful!',
@@ -237,9 +237,12 @@ export function AddTransactionForm({
     setIsSubmitting(true);
     let successCount = 0;
     for (const trans of scannedTransactions) {
+      // Create a default category if none is set
+      const category = trans.category || 'Other';
       const result = await addTransactionAction({
         ...trans,
-        date: new Date(), // Use current date for scanned items
+        category,
+        date: new Date(), 
       });
       if (result.success) {
         successCount++;
@@ -254,6 +257,17 @@ export function AddTransactionForm({
     router.refresh();
     setShowContinueDialog(true);
   }
+  
+  const handleScannedItemChange = (id: string, field: string, value: string | number) => {
+    setScannedTransactions(prev => 
+        prev.map(item => item.id === id ? {...item, [field]: value} : item)
+    );
+  }
+
+  const handleDeleteScannedItem = (id: string) => {
+    setScannedTransactions(prev => prev.filter(item => item.id !== id));
+  }
+
 
   const handleContinueDialogAction = (addAnother: boolean) => {
     setShowContinueDialog(false);
@@ -494,32 +508,63 @@ export function AddTransactionForm({
       </AlertDialog>
 
       <Dialog open={scannedTransactions.length > 0} onOpenChange={() => setScannedTransactions([])}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
             <DialogHeader>
                 <DialogTitle>Scanned Transactions</DialogTitle>
                 <DialogDescription>
-                    Review the transactions found in your receipt. Click "Add All" to save them.
+                    Review and edit the transactions found in your receipt. Click "Add All" to save them.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto">
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-6">
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Description</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className='w-2/5'>Description</TableHead>
+                            <TableHead className='w-1/5'>Type</TableHead>
+                            <TableHead className="w-1/5 text-right">Amount</TableHead>
+                             <TableHead className="w-1/5 text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {scannedTransactions.map((trans, index) => (
-                            <TableRow key={index}>
-                                <TableCell>{trans.description}</TableCell>
-                                <TableCell>{trans.type}</TableCell>
-                                <TableCell className="text-right font-mono">{trans.amount.toFixed(2)}</TableCell>
+                        {scannedTransactions.map((trans) => (
+                            <TableRow key={trans.id}>
+                                <TableCell>
+                                    <Input value={trans.description} onChange={(e) => handleScannedItemChange(trans.id, 'description', e.target.value)} className="h-8"/>
+                                </TableCell>
+                                <TableCell>
+                                     <Select value={trans.type} onValueChange={(value) => handleScannedItemChange(trans.id, 'type', value)}>
+                                        <SelectTrigger className="h-8">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="expense">Expense</SelectItem>
+                                            <SelectItem value="income">Income</SelectItem>
+                                        </SelectContent>
+                                     </Select>
+                                </TableCell>
+                                <TableCell>
+                                    <Input type="number" value={trans.amount} onChange={(e) => handleScannedItemChange(trans.id, 'amount', parseFloat(e.target.value) || 0)} className="h-8 text-right"/>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteScannedItem(trans.id)}>
+                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                    </Button>
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
+                 <Collapsible>
+                  <CollapsibleTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full mt-4">
+                          <CalculatorIcon />
+                          Show Calculator
+                      </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-4">
+                    <CurrencyCalculator showTitle={false} />
+                  </CollapsibleContent>
+              </Collapsible>
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setScannedTransactions([])}>Cancel</Button>
