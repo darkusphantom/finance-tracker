@@ -67,7 +67,6 @@ export async function loginAction(values: unknown) {
     };
   }
 
-  // Redirect is handled on the client-side after successful login
   return { success: true };
 }
 
@@ -147,7 +146,7 @@ export async function extractTransactionAction(
 
   try {
     const result = await extractTransactionFromImage(parsedInput.data);
-    return { data: result };
+    return { data: result.transactions };
   } catch (error) {
     console.error('AI transaction extraction failed:', error);
     return { error: 'Failed to extract transaction details from image.' };

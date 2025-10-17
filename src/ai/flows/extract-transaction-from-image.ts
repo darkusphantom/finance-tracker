@@ -19,11 +19,16 @@ const ExtractTransactionFromImageInputSchema = z.object({
 });
 export type ExtractTransactionFromImageInput = z.infer<typeof ExtractTransactionFromImageInputSchema>;
 
-const ExtractTransactionFromImageOutputSchema = z.object({
-    description: z.string().describe('A concise summary of the transaction. If there are multiple items, summarize them (e.g., "Groceries from Store"). If one item, use its name.'),
-    amount: z.number().describe('The total amount of the transaction. It should always be a positive number.'),
+const TransactionItemSchema = z.object({
+    description: z.string().describe('A concise summary of the transaction. If there are multiple items, use the specific item name.'),
+    amount: z.number().describe('The total amount of the transaction item. It should always be a positive number.'),
     type: z.enum(['income', 'expense']).describe('The type of transaction.'),
 });
+
+const ExtractTransactionFromImageOutputSchema = z.object({
+  transactions: z.array(TransactionItemSchema).describe('A list of one or more transactions found in the image.')
+});
+
 export type ExtractTransactionFromImageOutput = z.infer<typeof ExtractTransactionFromImageOutputSchema>;
 
 export async function extractTransactionFromImage(input: ExtractTransactionFromImageInput): Promise<ExtractTransactionFromImageOutput> {
@@ -34,13 +39,15 @@ const prompt = ai.definePrompt({
   name: 'extractTransactionFromImagePrompt',
   input: {schema: ExtractTransactionFromImageInputSchema},
   output: {schema: ExtractTransactionFromImageOutputSchema},
-  prompt: `You are a financial assistant. Analyze the provided image, which could be a receipt or a payment screenshot (like PayPal, bank transfer, etc.). Extract the transaction details.
+  prompt: `You are a financial assistant. Analyze the provided image, which could be a receipt or a payment screenshot (like PayPal, bank transfer, etc.). Extract all individual transaction items.
 
-- If it's a receipt with multiple items, provide a general description like "Groceries at [Store Name]" or "Shopping at [Store Name]".
-- If it's a single item, use the item's name as the description.
-- For payment screenshots, summarize the transaction, for example, "Payment to John Doe" or "Online purchase".
-- Determine if it's an 'income' or 'expense'. Payments made are typically 'expense', while payments received are 'income'.
-- Extract the final total amount. The amount should always be positive.
+- If it's a receipt with multiple items, create a separate transaction object for EACH item. Use the item's name as the description.
+- If it's a single item purchase or a payment screenshot, create a single transaction object. Summarize the transaction, for example, "Payment to John Doe" or "Online purchase".
+- Determine if it's 'income' or 'expense' for each item. Payments made are 'expense', payments received are 'income'.
+- Extract the amount for each item. The amount should always be positive.
+- If you find a total amount that seems to be the sum of other items, do not include the total as a separate transaction. Only extract the individual line items.
+
+Return the result as a list of transaction objects.
 
 Here is the image:
 {{media url=photoDataUri}}`,
