@@ -54,6 +54,7 @@ import { useRouter } from 'next/navigation';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { CurrencyCalculator } from './currency-calculator';
 import type { ExtractTransactionFromImageOutput } from '@/ai/flows/extract-transaction-from-image';
+import { Label } from './ui/label';
 
 const expenseCategories = [
   { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
