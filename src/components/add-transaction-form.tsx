@@ -99,7 +99,7 @@ const formSchema = z.object({
   date: z.date(),
 });
 
-type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string };
+type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string, category?: string };
 
 
 export function AddTransactionForm({
@@ -113,6 +113,7 @@ export function AddTransactionForm({
   const [showCalculator, setShowCalculator] = useState(false);
   const [showContinueDialog, setShowContinueDialog] = useState(false);
   const [scannedTransactions, setScannedTransactions] = useState<ScannedTransaction[]>([]);
+  const [scannedDate, setScannedDate] = useState<Date>(new Date());
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -237,12 +238,11 @@ export function AddTransactionForm({
     setIsSubmitting(true);
     let successCount = 0;
     for (const trans of scannedTransactions) {
-      // Create a default category if none is set
       const category = trans.category || 'Other';
       const result = await addTransactionAction({
         ...trans,
         category,
-        date: new Date(), 
+        date: scannedDate, 
       });
       if (result.success) {
         successCount++;
@@ -508,25 +508,53 @@ export function AddTransactionForm({
       </AlertDialog>
 
       <Dialog open={scannedTransactions.length > 0} onOpenChange={() => setScannedTransactions([])}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl">
             <DialogHeader>
                 <DialogTitle>Scanned Transactions</DialogTitle>
                 <DialogDescription>
-                    Review and edit the transactions found in your receipt. Click "Add All" to save them.
+                    Review, edit, and categorize the transactions found in your receipt. Click "Add All" to save them.
                 </DialogDescription>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-6">
+                 <div className="flex flex-col gap-2">
+                  <Label>Transaction Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-[280px] justify-start text-left font-normal',
+                            !scannedDate && 'text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {scannedDate ? format(scannedDate, 'PPP') : <span>Pick a date</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={scannedDate}
+                        onSelect={(date) => setScannedDate(date || new Date())}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className='w-2/5'>Description</TableHead>
-                            <TableHead className='w-1/5'>Type</TableHead>
-                            <TableHead className="w-1/5 text-right">Amount</TableHead>
-                             <TableHead className="w-1/5 text-right">Actions</TableHead>
+                            <TableHead className='w-2/6'>Description</TableHead>
+                            <TableHead className='w-1/6'>Type</TableHead>
+                            <TableHead className='w-2/6'>Category</TableHead>
+                            <TableHead className="w-1/6 text-right">Amount</TableHead>
+                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {scannedTransactions.map((trans) => (
+                        {scannedTransactions.map((trans) => {
+                            const cats = trans.type === 'income' ? incomeCategories : expenseCategories;
+                            return (
                             <TableRow key={trans.id}>
                                 <TableCell>
                                     <Input value={trans.description} onChange={(e) => handleScannedItemChange(trans.id, 'description', e.target.value)} className="h-8"/>
@@ -542,6 +570,18 @@ export function AddTransactionForm({
                                         </SelectContent>
                                      </Select>
                                 </TableCell>
+                                 <TableCell>
+                                    <Select value={trans.category} onValueChange={(value) => handleScannedItemChange(trans.id, 'category', value)}>
+                                        <SelectTrigger className="h-8">
+                                            <SelectValue placeholder="Select Category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {cats.map(c => (
+                                                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                     </Select>
+                                </TableCell>
                                 <TableCell>
                                     <Input type="number" value={trans.amount} onChange={(e) => handleScannedItemChange(trans.id, 'amount', parseFloat(e.target.value) || 0)} className="h-8 text-right"/>
                                 </TableCell>
@@ -551,7 +591,7 @@ export function AddTransactionForm({
                                     </Button>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )})}
                     </TableBody>
                 </Table>
                  <Collapsible>

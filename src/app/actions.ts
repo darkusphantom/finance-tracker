@@ -26,7 +26,6 @@ import {
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import bcrypt from 'bcrypt';
 
 const loginSchema = z.object({
@@ -106,7 +105,7 @@ export async function registerAction(values: unknown) {
 
 export async function logoutAction() {
     cookies().delete('auth-token');
-    redirect('/login');
+    return { success: true };
 }
 
 
