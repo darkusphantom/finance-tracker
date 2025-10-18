@@ -18,7 +18,7 @@ import {
 import { Badge } from './ui/badge';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { Input } from './ui/input';
 import {
   Select,
@@ -294,10 +294,22 @@ export function TransactionsTable({
           </TableBody>
         </Table>
         {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-4">
-              <Button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} variant="outline">Previous</Button>
-              <span>Page {page} of {totalPages}</span>
-              <Button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} variant="outline">Next</Button>
+          <div className="flex justify-center items-center gap-2 mt-4">
+              <Button onClick={() => setPage(1)} disabled={page === 1} variant="outline" size="icon">
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} variant="outline" size="icon">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <Button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} variant="outline" size="icon">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button onClick={() => setPage(totalPages)} disabled={page === totalPages} variant="outline" size="icon">
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
           </div>
         )}
       </CardContent>

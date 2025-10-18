@@ -82,13 +82,23 @@ export const createUser = async (userData: {email: string, username: string, pas
 export const getTransactions = async (databaseId: string) => {
   try {
     if (!databaseId) {
-      // Return empty array if DB ID is not set, to avoid crashing
       return [];
     }
-    const response = await notion.databases.query({
-      database_id: databaseId,
-    });
-    return response.results;
+    let results: any[] = [];
+    let hasMore = true;
+    let startCursor: string | undefined = undefined;
+
+    while (hasMore) {
+      const response = await notion.databases.query({
+        database_id: databaseId,
+        start_cursor: startCursor,
+        page_size: 100, // Max page size
+      });
+      results = results.concat(response.results);
+      hasMore = response.has_more;
+      startCursor = response.next_cursor || undefined;
+    }
+    return results;
   } catch (error) {
     console.error(`Error fetching transactions from Notion DB ${databaseId}:`, error);
     return [];
