@@ -97,7 +97,9 @@ const formSchema = z.object({
   amount: z.coerce.number().positive({ message: 'Amount must be positive.' }),
   type: z.enum(['income', 'expense']),
   category: z.string().optional(),
-  date: z.date(),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date format",
+  }),
 });
 
 type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string, category?: string };
@@ -126,7 +128,7 @@ export function AddTransactionForm({
       amount: 0,
       type: 'expense',
       category: '',
-      date: new Date(),
+      date: format(new Date(), 'yyyy-MM-dd'),
     },
   });
   
@@ -238,12 +240,14 @@ export function AddTransactionForm({
   const handleAddScannedTransactions = async () => {
     setIsSubmitting(true);
     let successCount = 0;
+    const dateString = format(scannedDate, 'yyyy-MM-dd');
+
     for (const trans of scannedTransactions) {
       const category = trans.category || 'Other';
       const result = await addTransactionAction({
         ...trans,
         category,
-        date: scannedDate, 
+        date: dateString,
       });
       if (result.success) {
         successCount++;
@@ -278,7 +282,7 @@ export function AddTransactionForm({
             amount: 0,
             type: 'expense',
             category: '',
-            date: new Date(),
+            date: format(new Date(), 'yyyy-MM-dd'),
         });
     } else {
         afterSubmit?.();
@@ -320,40 +324,10 @@ export function AddTransactionForm({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP')
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={(date) => {
-                          field.onChange(date)
-                          form.clearErrors('date');
-                        }}
-                        disabled={date =>
-                          date > new Date() || date < new Date('1900-01-01')
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Input 
+                    type="date"
+                    {...field}
+                  />
                   <FormMessage />
                 </FormItem>
               )}

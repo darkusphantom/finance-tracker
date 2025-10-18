@@ -117,20 +117,18 @@ export function TransactionsTable({
             return descriptionMatch;
         }
         
-        // Dates from Notion might not have time, so we should treat them as UTC to avoid timezone issues.
-        // new Date('YYYY-MM-DD') can be off by a day depending on the user's timezone.
         const transactionDateParts = t.date.split('-').map(Number);
         const transactionDate = new Date(Date.UTC(transactionDateParts[0], transactionDateParts[1] - 1, transactionDateParts[2]));
 
         let startDateMatch = true;
         if (startDate) {
-            const start = setHours(setMinutes(setSeconds(setMilliseconds(startDate, 0), 0), 0), 0);
+            const start = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
             startDateMatch = transactionDate >= start;
         }
 
         let endDateMatch = true;
         if (endDate) {
-            const end = setHours(setMinutes(setSeconds(setMilliseconds(endDate, 999), 59), 59), 23);
+            const end = new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999));
             endDateMatch = transactionDate <= end;
         }
 

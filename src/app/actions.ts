@@ -157,7 +157,9 @@ const addTransactionSchema = z.object({
   amount: z.coerce.number(),
   type: z.enum(['income', 'expense']),
   category: z.string().optional(),
-  date: z.date(),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date format",
+  }),
 });
 
 export async function addTransactionAction(values: unknown) {
@@ -169,7 +171,7 @@ export async function addTransactionAction(values: unknown) {
   try {
     const { description, amount, category, date, type } = parsed.data;
 
-    const monthName = format(date, 'MMMM yyyy');
+    const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
       process.env.NOTION_TOTAL_SAVINGS_DB!,
       monthName
@@ -186,7 +188,7 @@ export async function addTransactionAction(values: unknown) {
       Source: { title: [{ text: { content: description } }] },
       Amount: { number: transactionAmount },
       Tags: { select: { name: category || 'Other' } },
-      Date: { date: { start: date.toISOString().split('T')[0] } },
+      Date: { date: { start: date } },
       Month: { relation: [{ id: monthPageId }] },
     });
     return { success: true };
