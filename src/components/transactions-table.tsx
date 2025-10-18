@@ -18,7 +18,7 @@ import {
 import { Badge } from './ui/badge';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
-import { Trash2, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { Trash2, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Calendar as CalendarIcon } from 'lucide-react';
 import { Input } from './ui/input';
 import {
   Select,
@@ -44,6 +44,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar } from './ui/calendar';
+import { cn } from '@/lib/utils';
+import { format, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns';
+
 
 const expenseCategories = [
   { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
@@ -95,6 +100,8 @@ export function TransactionsTable({
   const [transactions, setTransactions] = useState(initialTransactions);
   const [filter, setFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const itemsPerPage = 15;
   const { toast } = useToast();
   const router = useRouter();
@@ -104,8 +111,32 @@ export function TransactionsTable({
   }, [initialTransactions]);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => t.description.toLowerCase().includes(filter.toLowerCase()));
-  }, [transactions, filter]);
+    return transactions.filter(t => {
+        const descriptionMatch = t.description.toLowerCase().includes(filter.toLowerCase());
+        if (!startDate && !endDate) {
+            return descriptionMatch;
+        }
+        
+        // Dates from Notion might not have time, so we should treat them as UTC to avoid timezone issues.
+        // new Date('YYYY-MM-DD') can be off by a day depending on the user's timezone.
+        const transactionDateParts = t.date.split('-').map(Number);
+        const transactionDate = new Date(Date.UTC(transactionDateParts[0], transactionDateParts[1] - 1, transactionDateParts[2]));
+
+        let startDateMatch = true;
+        if (startDate) {
+            const start = setHours(setMinutes(setSeconds(setMilliseconds(startDate, 0), 0), 0), 0);
+            startDateMatch = transactionDate >= start;
+        }
+
+        let endDateMatch = true;
+        if (endDate) {
+            const end = setHours(setMinutes(setSeconds(setMilliseconds(endDate, 999), 59), 59), 23);
+            endDateMatch = transactionDate <= end;
+        }
+
+        return descriptionMatch && startDateMatch && endDateMatch;
+    });
+  }, [transactions, filter, startDate, endDate]);
 
   const paginatedTransactions = useMemo(() => {
     const startIndex = (page - 1) * itemsPerPage;
@@ -177,12 +208,58 @@ export function TransactionsTable({
         </CardDescription>
       </CardHeader>
       <CardContent>
-         <div className="mb-4">
+         <div className="flex flex-wrap items-center gap-4 mb-4">
             <Input 
               placeholder="Search by description..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
+              className="flex-grow max-w-sm"
             />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, "PPP") : <span>Start date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={setStartDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+             <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-[240px] justify-start text-left font-normal",
+                    !endDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, "PPP") : <span>End date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={setEndDate}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <Button variant="ghost" onClick={() => { setStartDate(undefined); setEndDate(undefined); }}>Clear</Button>
           </div>
         <Table>
           <TableHeader>
