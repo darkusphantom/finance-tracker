@@ -13,7 +13,12 @@ export default function RegisterPage() {
             Únete a Notion Finance para tomar el control de tu dinero.
           </p>
         </div>
-        <RegisterForm />
+        <p className="text-xl font-bold text-center">No te vas a registrar, wey</p>
+        {
+          /*
+          <RegisterForm />
+          */
+        }
          <p className="mt-4 text-center text-sm text-muted-foreground">
           ¿Ya tienes una cuenta?{' '}
           <Link href="/login" className="font-semibold text-primary hover:underline">
