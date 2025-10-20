@@ -1,58 +1,80 @@
 # === STAGE 1: DEPENDENCIES ===
-# Get base image
 FROM node:20-alpine AS deps
 
-# Set working directory
+# Instalar pnpm globalmente
+RUN npm install -g pnpm@latest
+
+# Crear usuario no-root para seguridad
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Establecer directorio de trabajo
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package.json ./
+# Copiar archivos de dependencias
+COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
-RUN npm install
+# Instalar dependencias con caché optimizado
+RUN pnpm config set store-dir /root/.pnpm-store && \
+    pnpm install --frozen-lockfile --prod=false
 
 # === STAGE 2: BUILDER ===
-# Get base image
 FROM node:20-alpine AS builder
 
-# Set working directory
+# Instalar pnpm
+RUN npm install -g pnpm@latest
+
 WORKDIR /app
 
-# Copy dependencies from deps stage
+# Copiar dependencias desde la etapa anterior
 COPY --from=deps /app/node_modules ./node_modules
-# Copy all other source files
-COPY . .
 
-# Set build-time environment variables
-# Docker will look for a .env file in the build context.
-# Make sure to create this file on your server before building.
-ARG NOTION_TOKEN
-ARG NOTION_AUTH_DB
-ARG NOTION_TRANSACTIONS_DB
-ARG NOTION_INCOME_DB
-ARG NOTION_TOTAL_SAVINGS_DB
-ARG NOTION_ACCOUNTS_DB
-ARG NOTION_DEBTS_DB
-ARG NOTION_BUDGET_DB
+# Copiar archivos de configuración primero (para mejor caché)
+COPY package.json pnpm-lock.yaml ./
+COPY next.config.ts ./
+COPY tailwind.config.ts ./
+COPY postcss.config.mjs ./
+COPY tsconfig.json ./
 
-# Build the app
-RUN npm run build
+# Copiar código fuente
+COPY src ./src
+COPY components.json ./
+
+# Configurar Next.js para standalone output
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Construir la aplicación
+RUN pnpm run build
 
 # === STAGE 3: RUNNER ===
-# Get base image
 FROM node:20-alpine AS runner
 
-# Set working directory
+# Configurar entorno de producción
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Crear usuario no-root
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
 WORKDIR /app
 
-# Set production environment
-ENV NODE_ENV=production
+# Copiar archivos necesarios para producción (Next.js App Router no usa directorio public)
 
-# Copy the standalone Next.js server output from the builder stage
-COPY --from=builder /app/public ./public
+# Crear directorio .next y copiar archivos con permisos correctos
+RUN mkdir .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# The server is started in docker-compose.yml using the command
-# This ensures environment variables are passed correctly at runtime.
+# Cambiar a usuario no-root
+USER nextjs
+
+# Exponer puerto
+EXPOSE 3000
+
+# Variables de entorno para el servidor
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Comando para iniciar el servidor
 CMD ["node", "server.js"]
