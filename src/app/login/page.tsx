@@ -14,12 +14,16 @@ export default function LoginPage() {
             </p>
         </div>
         <LoginForm />
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        {
+          /*
+          <p className="mt-4 text-center text-sm text-muted-foreground">
           ¿No tienes una cuenta?{' '}
           <Link href="/register" className="font-semibold text-primary hover:underline">
             Regístrate
           </Link>
         </p>
+          */
+        }
       </div>
     </div>
   );
