@@ -275,6 +275,9 @@ export async function addDebtAction() {
       Type: { select: { name: 'Deuda' } },
       'Debt Amount': { number: 0 },
       Status: { select: { name: 'Pendiente' } },
+      'Amount Paid': { number: 0 },
+      Reason: { rich_text: [{ text: { content: '' } }] },
+      Date: { date: { start: new Date().toISOString().split('T')[0] } },
     };
     const newPage = await addPageToDb(
       process.env.NOTION_DEBTS_DB!,
@@ -309,10 +312,22 @@ export async function updateDebtAction(values: unknown) {
       case 'total':
         notionProperty = { 'Debt Amount': { number: parseFloat(value) || 0 } };
         break;
+      case 'paid':
+        notionProperty = { 'Amount Paid': { number: parseFloat(value) || 0 } };
+        break;
       case 'type':
         notionProperty = {
           Type: { select: { name: value === 'Debt' ? 'Deuda' : 'Deudor' } },
         };
+        break;
+      case 'status':
+        notionProperty = { Status: { select: { name: value } } };
+        break;
+      case 'reason':
+        notionProperty = { Reason: { rich_text: [{ text: { content: value } }] } };
+        break;
+      case 'date':
+        notionProperty = { Date: { date: { start: value } } };
         break;
       default:
         return { error: 'Invalid field.' };
@@ -324,6 +339,7 @@ export async function updateDebtAction(values: unknown) {
     return { error: 'Failed to update debt.' };
   }
 }
+
 
 const scheduledPaymentSchema = z.object({
   name: z.string().min(1, 'Name is required'),

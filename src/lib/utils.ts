@@ -48,25 +48,19 @@ export const transformDebtData = (notionPages: any[]): any[] => {
   if (!notionPages) return [];
   return notionPages.map(page => {
     const props = (page as any).properties;
-    const total = getProperty(props['Debt Amount']) || 0;
-    const status = getProperty(props.Status);
-    const type = getProperty(props.Type);
-
-    // If status is "Listo" (Done), the paid amount is the total amount.
-    // Otherwise, we assume 0 is paid for simplicity. This can be adjusted
-    // if a "Paid Amount" property is added to Notion.
-    const paid = status === 'Listo' ? total : 0;
-
     return {
       id: page.id,
       name: getProperty(props.Title) || 'N/A',
-      type: type === 'Deuda' ? 'Debt' : 'Debtor',
-      total: total,
-      paid: paid,
-      status: status || 'Pending',
+      type: getProperty(props.Type) === 'Deuda' ? 'Debt' : 'Debtor',
+      total: getProperty(props['Debt Amount']) || 0,
+      paid: getProperty(props['Amount Paid']) || 0,
+      status: getProperty(props.Status) || 'Pendiente',
+      reason: getProperty(props.Reason) || '',
+      date: getProperty(props.Date) || new Date().toISOString().split('T')[0],
     };
   });
 };
+
 
 export const transformTransactionData = (notionPages: any[]): any[] => {
   return notionPages.map(page => {
