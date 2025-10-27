@@ -12,7 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { useState, useEffect, useMemo } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { Trash2, PlusCircle, Loader2 } from 'lucide-react';
+import { Trash2, PlusCircle, Loader2, ArrowUpDown } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -55,6 +55,7 @@ export function Debts({
   const [page, setPage] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState<string | null>(null);
+  const [sort, setSort] = useState({ key: 'date', order: 'desc' });
   const itemsPerPage = isEditable ? 15 : 10;
   const router = useRouter();
   const { toast } = useToast();
@@ -62,26 +63,48 @@ export function Debts({
   useEffect(() => {
     setDebts(initialDebts);
   }, [initialDebts]);
+  
+  const handleSort = (key: string) => {
+    if (!isEditable) return;
+    setSort(prevSort => ({
+      key,
+      order: prevSort.key === key && prevSort.order === 'asc' ? 'desc' : 'asc',
+    }));
+  };
 
-  const filteredDebts = useMemo(() => {
-    if (!isEditable) {
-      return debts.slice(0, itemsPerPage);
-    }
-    return debts.filter(debt =>
+  const sortedAndFilteredDebts = useMemo(() => {
+    let filtered = debts.filter(debt =>
       debt.name.toLowerCase().includes(filter.toLowerCase())
     );
-  }, [debts, filter, isEditable, itemsPerPage]);
+
+    return filtered.sort((a, b) => {
+      const aValue = a[sort.key as keyof typeof a];
+      const bValue = b[sort.key as keyof typeof a];
+      
+      let comparison = 0;
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        comparison = aValue.localeCompare(bValue);
+      } else if (aValue < bValue) {
+        comparison = -1;
+      } else if (aValue > bValue) {
+        comparison = 1;
+      }
+
+      return sort.order === 'asc' ? comparison : -comparison;
+    });
+  }, [debts, filter, sort]);
+
 
   const paginatedDebts = useMemo(() => {
     if (!isEditable) {
-      return filteredDebts;
+      return sortedAndFilteredDebts.slice(0, itemsPerPage);
     }
     const startIndex = (page - 1) * itemsPerPage;
-    return filteredDebts.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredDebts, page, itemsPerPage, isEditable]);
+    return sortedAndFilteredDebts.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedAndFilteredDebts, page, itemsPerPage, isEditable]);
 
   const totalPages = isEditable
-    ? Math.ceil(filteredDebts.length / itemsPerPage)
+    ? Math.ceil(sortedAndFilteredDebts.length / itemsPerPage)
     : 1;
 
   const handleInputChange = (id: string, field: string, value: any) => {
@@ -174,11 +197,20 @@ export function Debts({
         {isEditable && (
           <div className="mb-4">
             <Input
-              placeholder="Search debts..."
+              placeholder="Search debts by name..."
               value={filter}
               onChange={e => setFilter(e.target.value)}
             />
           </div>
+        )}
+        {isEditable && (
+            <div className="flex flex-wrap items-center gap-2 mb-4 text-sm text-muted-foreground">
+                <span>Sort by:</span>
+                <Button variant="ghost" size="sm" onClick={() => handleSort('date')}><ArrowUpDown className="w-4 h-4 mr-2" />Date</Button>
+                <Button variant="ghost" size="sm" onClick={() => handleSort('name')}><ArrowUpDown className="w-4 h-4 mr-2" />Name</Button>
+                <Button variant="ghost" size="sm" onClick={() => handleSort('status')}><ArrowUpDown className="w-4 h-4 mr-2" />Status</Button>
+                <Button variant="ghost" size="sm" onClick={() => handleSort('total')}><ArrowUpDown className="w-4 h-4 mr-2" />Total</Button>
+            </div>
         )}
         <div className="space-y-4">
           {paginatedDebts.map(debt => (
