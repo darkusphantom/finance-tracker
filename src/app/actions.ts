@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
+import { redirect } from 'next/navigation';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -94,18 +95,20 @@ export async function registerAction(values: unknown) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     await createUser({ email, username, password: hashedPassword });
+
   } catch (error: any) {
     return {
       error:
         error.message || 'An unexpected error occurred during registration.',
     };
   }
+
   return { success: true };
 }
 
 export async function logoutAction() {
     cookies().delete('auth-token');
-    return { success: true };
+    redirect('/login');
 }
 
 
@@ -162,7 +165,7 @@ const addTransactionSchema = z.object({
   }),
 });
 
-export async function addTransactionAction(values: unknown) {
+export async function addTransactionAction(values: z.infer<typeof addTransactionSchema>) {
   const parsed = addTransactionSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
@@ -256,6 +259,9 @@ export async function addAccountAction() {
       'Account Type': { select: { name: 'Corriente' } },
       'Balance Amount': { number: 0 },
       'Is Active': { checkbox: true },
+      Currency: { select: { name: 'USD' } },
+      'Account Number': { rich_text: [{ text: { content: '' } }] },
+      'Last Transaction Date': { date: null },
     };
     const newPage = await addPageToDb(
       process.env.NOTION_ACCOUNTS_DB!,
@@ -267,6 +273,55 @@ export async function addAccountAction() {
     return { error: 'Failed to save account.' };
   }
 }
+
+const updateAccountSchema = z.object({
+  id: z.string(),
+  field: z.string(),
+  value: z.any(),
+});
+
+export async function updateAccountAction(values: unknown) {
+  const parsed = updateAccountSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
+
+  try {
+    const { id, field, value } = parsed.data;
+    let notionProperty;
+    switch (field) {
+      case 'name':
+        notionProperty = { Name: { title: [{ text: { content: value } }] } };
+        break;
+      case 'balance':
+        notionProperty = { 'Balance Amount': { number: parseFloat(value) || 0 } };
+        break;
+      case 'type':
+        notionProperty = { 'Account Type': { select: { name: value } } };
+        break;
+      case 'isActive':
+        notionProperty = { 'Is Active': { checkbox: value } };
+        break;
+      case 'currency':
+        notionProperty = { Currency: { select: { name: value } } };
+        break;
+      case 'accountNumber':
+        notionProperty = { 'Account Number': { rich_text: [{ text: { content: value } }] } };
+        break;
+      case 'lastTransactionDate':
+        notionProperty = { 'Last Transaction Date': { date: value ? { start: value } : null } };
+        break;
+      default:
+        return { error: 'Invalid field.' };
+    }
+    await updatePage(id, notionProperty);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update account in Notion:', error);
+    return { error: 'Failed to update account.' };
+  }
+}
+
 
 export async function addDebtAction() {
   try {

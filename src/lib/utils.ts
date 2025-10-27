@@ -40,6 +40,8 @@ export const transformAccountData = (notionPages: any[]): any[] => {
       balance: getProperty(props['Balance Amount']) || 0,
       isActive: getProperty(props['Is Active']) || false,
       currency: getProperty(props.Currency) || 'USD',
+      accountNumber: getProperty(props['Account Number']) || '',
+      lastTransactionDate: getProperty(props['Last Transaction Date']) || '',
     };
   });
 };

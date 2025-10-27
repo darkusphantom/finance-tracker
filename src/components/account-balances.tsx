@@ -36,10 +36,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from './ui/checkbox';
-import { addAccountAction } from '@/app/actions';
+import { addAccountAction, updateAccountAction, deleteTransactionAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Separator } from './ui/separator';
@@ -72,6 +71,7 @@ export function AccountBalances({
   const [sort, setSort] = useState({ key: 'name', order: 'asc' });
   const [page, setPage] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState<string | null>(null);
   const [officialRate, setOfficialRate] = useState<number | null>(null);
   const [rateLoading, setRateLoading] = useState(true);
 
@@ -181,6 +181,23 @@ export function AccountBalances({
     });
     setAccounts(newAccounts);
   };
+  
+    const handleUpdate = async (id: string, field: string, value: any) => {
+      if (!isEditable) return;
+      setIsSaving(`${id}-${field}`);
+      const result = await updateAccountAction({ id, field, value });
+      if (result?.error) {
+        toast({
+          title: 'Update Failed',
+          description: result.error,
+          variant: 'destructive',
+        });
+        setAccounts(initialAccounts); // Revert
+      } else {
+        router.refresh();
+      }
+      setIsSaving(null);
+    };
 
   const handleAddNewAccount = async () => {
     setIsAdding(true);
@@ -202,9 +219,26 @@ export function AccountBalances({
   };
 
 
-  const deleteRow = (id: string) => {
-    setAccounts(accounts.filter(account => account.id !== id));
-  };
+  const deleteRow = async (id: string) => {
+    const originalAccounts = accounts;
+    setAccounts(accounts.filter(a => a.id !== id));
+
+    const result = await deleteTransactionAction(id); // Reusing delete action
+    if (result.error) {
+        toast({
+            title: 'Delete Failed',
+            description: result.error,
+            variant: 'destructive',
+        });
+        setAccounts(originalAccounts);
+    } else {
+        toast({
+            title: 'Account Deleted',
+            description: 'The account has been removed.',
+        });
+        router.refresh();
+    }
+};
 
   const getIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -273,6 +307,12 @@ export function AccountBalances({
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
+               <TableHead>
+                <Button variant="ghost" onClick={() => handleSort('accountNumber')}>
+                    Account #
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
               <TableHead>
                 <Button variant="ghost" onClick={() => handleSort('type')}>
                     Type
@@ -291,21 +331,29 @@ export function AccountBalances({
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
+               <TableHead>
+                <Button variant="ghost" onClick={() => handleSort('lastTransactionDate')}>
+                    Last Tx Date
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
               {isEditable && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedAccounts.map(account => {
               const Icon = getIcon(account.type);
-              const displayCurrency = account.currency === 'USDT' ? 'USD' : account.currency;
               return (
                 <TableRow key={account.id}>
                   <TableCell>
                     <Checkbox
                         checked={!account.isActive}
-                        onCheckedChange={value =>
-                            isEditable && handleInputChange(account.id, 'isActive', !value)
-                        }
+                        onCheckedChange={value => {
+                            if (isEditable) {
+                                handleInputChange(account.id, 'isActive', !value);
+                                handleUpdate(account.id, 'isActive', !value);
+                            }
+                        }}
                         disabled={!isEditable}
                     />
                   </TableCell>
@@ -317,19 +365,34 @@ export function AccountBalances({
                         onChange={e =>
                           handleInputChange(account.id, 'name', e.target.value)
                         }
+                        onBlur={e => handleUpdate(account.id, 'name', e.target.value)}
                         className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
                       />
                     ) : (
                       <span>{account.name}</span>
                     )}
                   </TableCell>
+                   <TableCell>
+                    {isEditable ? (
+                      <Input
+                        value={account.accountNumber}
+                        onChange={e => handleInputChange(account.id, 'accountNumber', e.target.value)}
+                        onBlur={e => handleUpdate(account.id, 'accountNumber', e.target.value)}
+                        className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                        placeholder="N/A"
+                      />
+                    ) : (
+                      <span>{account.accountNumber || 'N/A'}</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {isEditable ? (
                       <Select
                         value={account.type}
-                        onValueChange={value =>
-                          handleInputChange(account.id, 'type', value)
-                        }
+                        onValueChange={value => {
+                            handleInputChange(account.id, 'type', value);
+                            handleUpdate(account.id, 'type', value);
+                        }}
                       >
                         <SelectTrigger className="w-[120px] border-none bg-transparent p-0 h-auto focus:ring-0">
                           <Badge variant="outline">
@@ -352,9 +415,10 @@ export function AccountBalances({
                      {isEditable ? (
                       <Select
                         value={account.currency}
-                        onValueChange={value =>
-                          handleInputChange(account.id, 'currency', value)
-                        }
+                        onValueChange={value => {
+                            handleInputChange(account.id, 'currency', value);
+                            handleUpdate(account.id, 'currency', value);
+                        }}
                       >
                         <SelectTrigger className="w-[100px] border-none bg-transparent p-0 h-auto focus:ring-0">
                            <SelectValue placeholder="Select currency" />
@@ -383,6 +447,7 @@ export function AccountBalances({
                             e.target.value
                           )
                         }
+                        onBlur={e => handleUpdate(account.id, 'balance', e.target.value)}
                         className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${
                           account.balance >= 0
                             ? 'text-foreground'
@@ -390,18 +455,22 @@ export function AccountBalances({
                         }`}
                       />
                     ) : (
-                      <span
-                        className={`font-mono ${
-                          account.balance >= 0
-                            ? 'text-foreground'
-                            : 'text-destructive'
-                        }`}
-                      >
-                        {new Intl.NumberFormat('en-US', {
-                          style: 'currency',
-                          currency: displayCurrency,
-                        }).format(account.balance)}
+                       <span className={`font-mono ${account.balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
+                        {formatCurrency(account.balance, account.currency)}
                       </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isEditable ? (
+                      <Input
+                        type="date"
+                        value={account.lastTransactionDate}
+                        onChange={e => handleInputChange(account.id, 'lastTransactionDate', e.target.value)}
+                        onBlur={e => handleUpdate(account.id, 'lastTransactionDate', e.target.value)}
+                        className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                      />
+                    ) : (
+                      <span>{account.lastTransactionDate ? new Date(account.lastTransactionDate).toLocaleDateString() : 'N/A'}</span>
                     )}
                   </TableCell>
                   {isEditable && (
