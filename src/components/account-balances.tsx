@@ -36,6 +36,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from './ui/checkbox';
 import { addAccountAction, updateAccountAction, deleteTransactionAction } from '@/app/actions';
