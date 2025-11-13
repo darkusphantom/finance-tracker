@@ -14,6 +14,7 @@ import {
   Calculator,
   BotMessageSquare,
   ShieldCheck,
+  CircleDollarSign,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -26,6 +27,7 @@ export function MainNav() {
     { href: '/transactions', label: 'Transactions', icon: ReceiptText },
     { href: '/budget', label: 'Budget', icon: CalendarCheck },
     { href: '/calculator', label: 'Calculator', icon: Calculator },
+    { href: '/binance', label: 'Binance', icon: CircleDollarSign },
     { href: '/chat', label: 'AI Advisor', icon: BotMessageSquare },
     { href: '/risk-analysis', label: 'Risk Analysis', icon: ShieldCheck },
   ];

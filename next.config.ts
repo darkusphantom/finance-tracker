@@ -41,6 +41,8 @@ const nextConfig: NextConfig = {
     NOTION_ACCOUNTS_DB: process.env.NOTION_ACCOUNTS_DB,
     NOTION_DEBTS_DB: process.env.NOTION_DEBTS_DB,
     NOTION_BUDGET_DB: process.env.NOTION_BUDGET_DB,
+    BINANCE_API_KEY: process.env.BINANCE_API_KEY,
+    BINANCE_API_SECRET: process.env.BINANCE_API_SECRET,
   }
 };
 
