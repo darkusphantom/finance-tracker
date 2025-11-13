@@ -161,9 +161,10 @@ const addTransactionSchema = z.object({
   description: z.string().min(2),
   amount: z.coerce.number(),
   type: z.enum(['income', 'expense']),
+  currencyType: z.enum(['USD', 'VES']),
+  accountId: z.string().min(1, "Account is required"),
   category: z.string().optional(),
   date: z.string(),
-  accountId: z.string().min(1, "Account is required"),
 });
 
 
@@ -174,8 +175,22 @@ export async function addTransactionAction(values: z.infer<typeof addTransaction
   }
 
   try {
-    const { description, amount, category, date, type, accountId } = parsed.data;
+    const { description, amount, category, date, type, accountId, currencyType } = parsed.data;
 
+    // First, validate the account
+    const accountPage = await getPage(accountId);
+    if (!accountPage) {
+        throw new Error("Selected account not found.");
+    }
+    const accountCurrency = getProperty((accountPage as any).properties.Currency);
+    const isUSDAccount = accountCurrency === 'USD' || accountCurrency === 'USDT';
+    const isVESAccount = accountCurrency === 'VES';
+
+    if ((currencyType === 'USD' && !isUSDAccount) || (currencyType === 'VES' && !isVESAccount)) {
+        throw new Error(`Transaction currency (${currencyType}) does not match account currency (${accountCurrency}).`);
+    }
+
+    // Add transaction
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
       process.env.NOTION_TOTAL_SAVINGS_DB!,
@@ -183,13 +198,11 @@ export async function addTransactionAction(values: z.infer<typeof addTransaction
     );
 
     const transactionAmount = Math.abs(amount);
-
     const databaseId =
       type === 'income'
         ? process.env.NOTION_INCOME_DB!
         : process.env.NOTION_TRANSACTIONS_DB!;
     
-    // Add transaction
     await addPageToDb(databaseId, {
       Source: { title: [{ text: { content: description } }] },
       Amount: { number: transactionAmount },
@@ -199,28 +212,18 @@ export async function addTransactionAction(values: z.infer<typeof addTransaction
     });
 
     // Update account balance
-    const accountPage = await getPage(accountId);
-    if (!accountPage) {
-        throw new Error("Selected account not found.");
-    }
-
     const currentBalance = getProperty((accountPage as any).properties['Balance Amount']) || 0;
-    const accountCurrency = getProperty((accountPage as any).properties.Currency);
+    const newBalance = type === 'income' ? currentBalance + transactionAmount : currentBalance - transactionAmount;
 
-    // This is a simplified currency check. In a real app, you might want to check the transaction currency as well.
-    if (['USD', 'USDT'].includes(accountCurrency) || ['VES'].includes(accountCurrency)) {
-       const newBalance = type === 'income' ? currentBalance + transactionAmount : currentBalance - transactionAmount;
-
-       await updatePage(accountId, {
-        'Balance Amount': { number: newBalance },
-        'Last Transaction Date': { date: { start: new Date().toISOString() } },
-       });
-    }
+    await updatePage(accountId, {
+    'Balance Amount': { number: newBalance },
+    'Last Transaction Date': { date: { start: new Date().toISOString() } },
+    });
 
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to add transaction to Notion:', error);
-    return { error: 'Failed to save transaction.' };
+    return { error: error.message || 'Failed to save transaction.' };
   }
 }
 

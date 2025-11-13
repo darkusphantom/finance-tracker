@@ -96,6 +96,7 @@ const formSchema = z.object({
   }),
   amount: z.coerce.number().positive({ message: 'Amount must be positive.' }),
   type: z.enum(['income', 'expense']),
+  currencyType: z.enum(['USD', 'VES']),
   accountId: z.string().min(1, { message: 'Please select an account.'}),
   category: z.string().optional(),
   date: z.string(),
@@ -129,6 +130,7 @@ export function AddTransactionForm({
       description: '',
       amount: 0,
       type: 'expense',
+      currencyType: 'USD',
       accountId: '',
       category: '',
       date: format(new Date(), 'yyyy-MM-dd'),
@@ -139,13 +141,20 @@ export function AddTransactionForm({
     control: form.control,
     name: 'type',
   });
+
+  const currencyType = useWatch({
+    control: form.control,
+    name: 'currencyType',
+  })
   
   const categories = transactionType === 'income' ? incomeCategories : expenseCategories;
   
   const availableAccounts = useMemo(() => {
-    return accounts.filter(acc => acc.isActive && (acc.currency === 'USD' || acc.currency === 'USDT'));
-  }, [accounts]);
-
+    const isUSD = currencyType === 'USD';
+    return accounts.filter(acc => acc.isActive && (
+        isUSD ? (acc.currency === 'USD' || acc.currency === 'USDT') : acc.currency === 'VES'
+    ));
+  }, [accounts, currencyType]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -255,7 +264,8 @@ export function AddTransactionForm({
         ...trans,
         category: trans.category || 'Other',
         date: dateString,
-        accountId: defaultAccountId, // This should ideally be selectable per item or as a batch.
+        accountId: defaultAccountId,
+        currencyType: 'USD', // Defaulting scanned to USD, can be improved.
       });
       if (result.success) {
         successCount++;
@@ -289,6 +299,7 @@ export function AddTransactionForm({
             description: '',
             amount: 0,
             type: 'expense',
+            currencyType: 'USD',
             accountId: '',
             category: '',
             date: format(new Date(), 'yyyy-MM-dd'),
@@ -359,35 +370,60 @@ export function AddTransactionForm({
                 </FormItem>
               )}
             />
-            
-            <FormField
+             <div className="grid grid-cols-2 gap-4">
+               <FormField
                 control={form.control}
-                name="accountId"
+                name="currencyType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Account</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
+                    <FormLabel>Currency</FormLabel>
+                    <Select onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue('accountId', '');
+                    }} defaultValue={field.value} value={field.value}>
+                      <FormControl>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select an account" />
+                          <SelectValue placeholder="Select currency type" />
                         </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {availableAccounts.map(account => (
-                            <SelectItem key={account.id} value={account.id}>
-                               <div className="flex items-center gap-2">
-                                  <Wallet className="w-4 h-4 text-muted-foreground" />
-                                  <span>{account.name} ({account.currency})</span>
-                               </div>
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="VES">VES</SelectItem>
+                      </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
-            />
-
+              />
+                <FormField
+                    control={form.control}
+                    name="accountId"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Account</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={availableAccounts.length === 0}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder={availableAccounts.length === 0 ? `No ${currencyType} accounts` : "Select an account"} />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {availableAccounts.map(account => (
+                                <SelectItem key={account.id} value={account.id}>
+                                <div className="flex items-center gap-2">
+                                    <Wallet className="w-4 h-4 text-muted-foreground" />
+                                    <span>{account.name} ({account.currency})</span>
+                                </div>
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -494,7 +530,7 @@ export function AddTransactionForm({
                   <CollapsibleTrigger asChild>
                       <Button type="button" variant="outline" className="w-full">
                           <CalculatorIcon />
-                          Mostrar Calculadora
+                          Show Calculator
                       </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-4">
