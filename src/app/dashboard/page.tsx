@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   const transactions = transformTransactionData(rawTransactions);
 
   return (
-    <DashboardClientLayout>
+    <DashboardClientLayout accounts={accounts}>
       <main className="space-y-6">
         <FinancialChart transactions={transactions} />
         <div className="grid gap-6 md:grid-cols-3">

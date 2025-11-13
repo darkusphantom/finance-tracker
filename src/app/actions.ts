@@ -21,8 +21,10 @@ import {
   updatePage,
   findOrCreateMonthPage,
   findUserByUsernameOrEmail,
-  createUser
+  createUser,
+  getPage,
 } from '@/lib/notion';
+import { getProperty } from '@/lib/utils';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
@@ -160,10 +162,10 @@ const addTransactionSchema = z.object({
   amount: z.coerce.number(),
   type: z.enum(['income', 'expense']),
   category: z.string().optional(),
-  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format",
-  }),
+  date: z.string(),
+  accountId: z.string().min(1, "Account is required"),
 });
+
 
 export async function addTransactionAction(values: z.infer<typeof addTransactionSchema>) {
   const parsed = addTransactionSchema.safeParse(values);
@@ -172,7 +174,7 @@ export async function addTransactionAction(values: z.infer<typeof addTransaction
   }
 
   try {
-    const { description, amount, category, date, type } = parsed.data;
+    const { description, amount, category, date, type, accountId } = parsed.data;
 
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
@@ -186,7 +188,8 @@ export async function addTransactionAction(values: z.infer<typeof addTransaction
       type === 'income'
         ? process.env.NOTION_INCOME_DB!
         : process.env.NOTION_TRANSACTIONS_DB!;
-
+    
+    // Add transaction
     await addPageToDb(databaseId, {
       Source: { title: [{ text: { content: description } }] },
       Amount: { number: transactionAmount },
@@ -194,6 +197,26 @@ export async function addTransactionAction(values: z.infer<typeof addTransaction
       Date: { date: { start: date } },
       Month: { relation: [{ id: monthPageId }] },
     });
+
+    // Update account balance
+    const accountPage = await getPage(accountId);
+    if (!accountPage) {
+        throw new Error("Selected account not found.");
+    }
+
+    const currentBalance = getProperty((accountPage as any).properties['Balance Amount']) || 0;
+    const accountCurrency = getProperty((accountPage as any).properties.Currency);
+
+    // This is a simplified currency check. In a real app, you might want to check the transaction currency as well.
+    if (['USD', 'USDT'].includes(accountCurrency) || ['VES'].includes(accountCurrency)) {
+       const newBalance = type === 'income' ? currentBalance + transactionAmount : currentBalance - transactionAmount;
+
+       await updatePage(accountId, {
+        'Balance Amount': { number: newBalance },
+        'Last Transaction Date': { date: { start: new Date().toISOString() } },
+       });
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Failed to add transaction to Notion:', error);

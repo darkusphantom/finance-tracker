@@ -40,8 +40,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2 } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2, Wallet } from 'lucide-react';
+import { useState, useRef, useMemo } from 'react';
 import {
   suggestCategoryAction,
   extractTransactionAction,
@@ -96,18 +96,20 @@ const formSchema = z.object({
   }),
   amount: z.coerce.number().positive({ message: 'Amount must be positive.' }),
   type: z.enum(['income', 'expense']),
+  accountId: z.string().min(1, { message: 'Please select an account.'}),
   category: z.string().optional(),
-  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format",
-  }),
+  date: z.string(),
 });
+
 
 type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string, category?: string };
 
 
 export function AddTransactionForm({
+  accounts = [],
   afterSubmit,
 }: {
+  accounts: any[];
   afterSubmit?: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,6 +129,7 @@ export function AddTransactionForm({
       description: '',
       amount: 0,
       type: 'expense',
+      accountId: '',
       category: '',
       date: format(new Date(), 'yyyy-MM-dd'),
     },
@@ -138,6 +141,10 @@ export function AddTransactionForm({
   });
   
   const categories = transactionType === 'income' ? incomeCategories : expenseCategories;
+  
+  const availableAccounts = useMemo(() => {
+    return accounts.filter(acc => acc.isActive && (acc.currency === 'USD' || acc.currency === 'USDT'));
+  }, [accounts]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -241,13 +248,14 @@ export function AddTransactionForm({
     setIsSubmitting(true);
     let successCount = 0;
     const dateString = format(scannedDate, 'yyyy-MM-dd');
+    const defaultAccountId = availableAccounts.length > 0 ? availableAccounts[0].id : '';
 
     for (const trans of scannedTransactions) {
-      const category = trans.category || 'Other';
       const result = await addTransactionAction({
         ...trans,
-        category,
+        category: trans.category || 'Other',
         date: dateString,
+        accountId: defaultAccountId, // This should ideally be selectable per item or as a batch.
       });
       if (result.success) {
         successCount++;
@@ -281,6 +289,7 @@ export function AddTransactionForm({
             description: '',
             amount: 0,
             type: 'expense',
+            accountId: '',
             category: '',
             date: format(new Date(), 'yyyy-MM-dd'),
         });
@@ -324,9 +333,10 @@ export function AddTransactionForm({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Date</FormLabel>
-                  <Input 
+                   <Input 
                     type="date"
-                    {...field}
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
                   />
                   <FormMessage />
                 </FormItem>
@@ -348,6 +358,34 @@ export function AddTransactionForm({
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            
+            <FormField
+                control={form.control}
+                name="accountId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Account</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select an account" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {availableAccounts.map(account => (
+                            <SelectItem key={account.id} value={account.id}>
+                               <div className="flex items-center gap-2">
+                                  <Wallet className="w-4 h-4 text-muted-foreground" />
+                                  <span>{account.name} ({account.currency})</span>
+                               </div>
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
             />
 
             <div className="grid grid-cols-2 gap-4">

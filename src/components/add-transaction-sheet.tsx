@@ -13,7 +13,7 @@ import { PlusCircle } from 'lucide-react';
 import { AddTransactionForm } from './add-transaction-form';
 import { useState } from 'react';
 
-export function AddTransactionSheet() {
+export function AddTransactionSheet({ accounts = [] }: { accounts?: any[]}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -32,7 +32,7 @@ export function AddTransactionSheet() {
             database.
           </SheetDescription>
         </SheetHeader>
-        <AddTransactionForm afterSubmit={() => setOpen(false)} />
+        <AddTransactionForm accounts={accounts} afterSubmit={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );

@@ -6,8 +6,10 @@ import { AddTransactionSheet } from './add-transaction-sheet';
 
 export function DashboardClientLayout({
   children,
+  accounts = [],
 }: {
   children: React.ReactNode;
+  accounts?: any[];
 }) {
   return (
     <DashboardLayout>
@@ -18,7 +20,7 @@ export function DashboardClientLayout({
             Dashboard
           </h1>
         </div>
-         <AddTransactionSheet />
+         <AddTransactionSheet accounts={accounts} />
       </header>
       {children}
     </DashboardLayout>

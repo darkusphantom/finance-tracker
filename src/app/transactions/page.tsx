@@ -1,9 +1,9 @@
 import { AddTransactionSheet } from '@/components/add-transaction-sheet';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { TransactionsTable } from '@/components/transactions-table';
-import { getAllTransactions } from '@/lib/notion';
+import { getAllTransactions, getAccounts } from '@/lib/notion';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { transformTransactionData } from '@/lib/utils';
+import { transformTransactionData, transformAccountData } from '@/lib/utils';
 
 export const revalidate = 0;
 
@@ -13,6 +13,9 @@ export default async function TransactionsPage() {
     process.env.NOTION_INCOME_DB!
   );
   const transactions = transformTransactionData(rawTransactions);
+  
+  const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
+  const accounts = transformAccountData(rawAccounts);
 
   return (
     <DashboardLayout>
@@ -23,7 +26,7 @@ export default async function TransactionsPage() {
             Transactions
           </h1>
         </div>
-        <AddTransactionSheet />
+        <AddTransactionSheet accounts={accounts} />
       </header>
       <main>
         <TransactionsTable initialTransactions={transactions} />

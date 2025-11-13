@@ -297,45 +297,49 @@ export function AccountBalances({
           <TableHeader>
             <TableRow>
               <TableHead>
-                 <Button variant="ghost" onClick={() => handleSort('isActive')}>
+                 <Button className="pl-2"  variant="ghost" onClick={() => handleSort('isActive')}>
+                    <ArrowUpDown className="h-4 w-4" />
                     Paused
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
                  </Button>
               </TableHead>
+              {
+                /**
+                 <TableHead>
+                <Button className="pl-2" variant="ghost" onClick={() => handleSort('accountNumber')}>
+                    <ArrowUpDown className="h-4 w-4" />
+                    ID Account
+                </Button>
+              </TableHead>
+                */
+              }
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('name')}>
+                <Button className="pl-2" variant="ghost" onClick={() => handleSort('name')}>
+                    <ArrowUpDown className="h-4 w-4" />
                     Account
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('accountNumber')}>
-                    Account #
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('type')}>
+                <Button className="pl-2" variant="ghost" onClick={() => handleSort('type')}>
+                    <ArrowUpDown className="h-4 w-4" />
                     Type
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('currency')}>
+                <Button className="pl-2" variant="ghost" onClick={() => handleSort('currency')}>
+                    <ArrowUpDown className="h-4 w-4" />
                     Currency
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('balance')}>
+                <Button className="pl-2" variant="ghost" onClick={() => handleSort('balance')}>
+                    <ArrowUpDown className="h-4 w-4" />
                     Balance
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
                <TableHead>
-                <Button variant="ghost" onClick={() => handleSort('lastTransactionDate')}>
+                <Button className="pl-2" variant="ghost" onClick={() => handleSort('lastTransactionDate')}>
+                    <ArrowUpDown className="h-4 w-4" />
                     Last Tx Date
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               {isEditable && <TableHead className="text-right">Actions</TableHead>}
@@ -358,6 +362,23 @@ export function AccountBalances({
                         disabled={!isEditable}
                     />
                   </TableCell>
+                  {
+                /**
+ <TableCell>
+                    {isEditable ? (
+                      <Input
+                        value={account.accountNumber}
+                        onChange={e => handleInputChange(account.id, 'accountNumber', e.target.value)}
+                        onBlur={e => handleUpdate(account.id, 'accountNumber', e.target.value)}
+                        className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                        placeholder="N/A"
+                      />
+                    ) : (
+                      <span>{account.accountNumber || 'N/A'}</span>
+                    )}
+                  </TableCell>
+                */
+              }
                   <TableCell className="font-medium flex items-center gap-2">
                     <Icon className="w-4 h-4 text-muted-foreground" />
                     {isEditable ? (
@@ -371,19 +392,6 @@ export function AccountBalances({
                       />
                     ) : (
                       <span>{account.name}</span>
-                    )}
-                  </TableCell>
-                   <TableCell>
-                    {isEditable ? (
-                      <Input
-                        value={account.accountNumber}
-                        onChange={e => handleInputChange(account.id, 'accountNumber', e.target.value)}
-                        onBlur={e => handleUpdate(account.id, 'accountNumber', e.target.value)}
-                        className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                        placeholder="N/A"
-                      />
-                    ) : (
-                      <span>{account.accountNumber || 'N/A'}</span>
                     )}
                   </TableCell>
                   <TableCell>

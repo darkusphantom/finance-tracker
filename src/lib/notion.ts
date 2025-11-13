@@ -12,6 +12,11 @@ const notion = new Client({
 
 const isEmail = (str: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
 
+export const getPage = async (pageId: string) => {
+    const response = await notion.pages.retrieve({ page_id: pageId });
+    return response;
+};
+
 export const findUserByUsernameOrEmail = async (loginIdentifier: string) => {
   const authDbId = process.env.NOTION_AUTH_DB;
   if (!authDbId) {
