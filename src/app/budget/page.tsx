@@ -1,7 +1,5 @@
-import { AddTransactionSheet } from '@/components/add-transaction-sheet';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { BudgetView } from '@/components/budget-view';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
   getAllTransactions,
   getScheduledPayments,
@@ -28,15 +26,7 @@ export default async function BudgetPage() {
   const scheduledPayments = transformScheduledPaymentsData(rawScheduledPayments);
 
   return (
-    <DashboardLayout>
-      <header className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <SidebarTrigger className="md:hidden" />
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Budget
-          </h1>
-        </div>
-      </header>
+    <DashboardLayout title="Budget">
       <main className="space-y-6">
         <BudgetView transactions={transactions} />
         <Separator />

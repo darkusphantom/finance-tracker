@@ -7,12 +7,21 @@ import {
   SidebarContent,
   SidebarInset,
   SidebarFooter,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { MainNav } from './main-nav';
 import { Bot } from 'lucide-react';
 import { LogoutButton } from './logout-button';
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+export function DashboardLayout({
+  children,
+  title,
+  headerActions,
+}: {
+  children: React.ReactNode;
+  title: string;
+  headerActions?: React.ReactNode;
+}) {
   return (
     <SidebarProvider>
       <Sidebar>
@@ -26,11 +35,22 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           <MainNav />
         </SidebarContent>
         <SidebarFooter>
-            <LogoutButton />
+          <LogoutButton />
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <div className="p-4 sm:p-6">{children}</div>
+        <div className="p-4 sm:p-6">
+          <header className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger className="md:hidden" />
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                {title}
+              </h1>
+            </div>
+            {headerActions}
+          </header>
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
