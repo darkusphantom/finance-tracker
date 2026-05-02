@@ -68,6 +68,14 @@ export const transformDebtData = (notionPages: any[]): any[] => {
   });
 };
 
+// Extracts only the YYYY-MM-DD portion from a date string that may include
+// a full ISO datetime with timezone (e.g. "2026-05-01T08:02:00.000-04:00")
+const parseDateOnly = (dateStr: string | null): string => {
+  if (!dateStr) return new Date().toISOString().split('T')[0];
+  // If it contains a 'T', it's a full datetime — slice off just the date part
+  return dateStr.includes('T') ? dateStr.slice(0, 10) : dateStr;
+};
+
 export const transformTransactionData = (notionPages: any[]): any[] => {
   return notionPages.map(page => {
     const props = (page as any).properties;
@@ -76,12 +84,23 @@ export const transformTransactionData = (notionPages: any[]): any[] => {
     // The type is now passed with the page object from getAllTransactions
     const type = (page as any).type;
 
-    // Formula property requires special handling
-    const realUsdAmount = props['\uD83D\uDCB8 Real USD Expense']?.formula?.number ?? null;
+    // Try both formula field names: income DB uses '💵 Real USD Income',
+    // expenses DB uses '💸 Real USD Expense'
+    const incomeFormula = Object.entries(props).find(
+      ([key]) => key.includes('Real USD Income')
+    );
+    const expenseFormula = Object.entries(props).find(
+      ([key]) => key.includes('Real USD Expense')
+    );
+    const formulaEntry = incomeFormula ?? expenseFormula;
+    const realUsdAmount =
+      formulaEntry
+        ? (formulaEntry[1] as any)?.formula?.number ?? null
+        : null;
 
     return {
       id: page.id,
-      date: getProperty(props.Date) || new Date().toISOString().split('T')[0],
+      date: parseDateOnly(getProperty(props.Date)),
       description: getProperty(props.Source) || 'N/A',
       amount: amount,
       type: type, // 'income' or 'expense'
