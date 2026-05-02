@@ -3,6 +3,10 @@ import type {NextConfig} from 'next';
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone',
+  // // Configuración para funcionar detrás de un proxy
+  // experimental: {
+  //   trustHost: true,
+  // },
   typescript: {
     ignoreBuildErrors: true,
   },
