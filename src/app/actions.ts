@@ -54,7 +54,7 @@ export async function loginAction(values: unknown) {
       return { error: 'Invalid credentials.' };
     }
 
-    cookies().set('auth-token', user.id, {
+    (await cookies()).set('auth-token', user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 24 * 7, // One week
@@ -104,8 +104,8 @@ export async function registerAction(values: unknown) {
 }
 
 export async function logoutAction() {
-    cookies().delete('auth-token');
-    return { success: true };
+  (await cookies()).delete('auth-token');
+  return { success: true };
 }
 
 
@@ -160,6 +160,8 @@ const addTransactionSchema = z.object({
   date: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format",
   }),
+  currency: z.string().optional(),
+  exchangeRate: z.coerce.number().optional(),
 });
 
 export async function addTransactionAction(values: unknown) {
@@ -169,7 +171,7 @@ export async function addTransactionAction(values: unknown) {
   }
 
   try {
-    const { description, amount, category, date, type } = parsed.data;
+    const { description, amount, category, date, type, currency, exchangeRate } = parsed.data;
 
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
@@ -184,13 +186,22 @@ export async function addTransactionAction(values: unknown) {
         ? process.env.NOTION_INCOME_DB!
         : process.env.NOTION_TRANSACTIONS_DB!;
 
-    await addPageToDb(databaseId, {
+    const notionProperties: Record<string, any> = {
       Source: { title: [{ text: { content: description } }] },
       Amount: { number: transactionAmount },
       Tags: { select: { name: category || 'Other' } },
       Date: { date: { start: date } },
       Month: { relation: [{ id: monthPageId }] },
-    });
+    };
+
+    if (currency) {
+      notionProperties['Currency'] = { select: { name: currency } };
+    }
+    if (exchangeRate !== undefined && exchangeRate !== null) {
+      notionProperties['Exchange Rate Used'] = { number: exchangeRate };
+    }
+
+    await addPageToDb(databaseId, notionProperties);
     return { success: true };
   } catch (error) {
     console.error('Failed to add transaction to Notion:', error);
@@ -226,6 +237,12 @@ export async function updateTransactionAction(values: unknown) {
         break;
       case 'date':
         notionProperty = { Date: { date: { start: value } } };
+        break;
+      case 'currency':
+        notionProperty = { Currency: { select: { name: value } } };
+        break;
+      case 'exchangeRate':
+        notionProperty = { 'Exchange Rate Used': { number: parseFloat(value) || 0 } };
         break;
       default:
         return { error: 'Invalid field.' };

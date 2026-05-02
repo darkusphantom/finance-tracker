@@ -76,6 +76,9 @@ export const transformTransactionData = (notionPages: any[]): any[] => {
     // The type is now passed with the page object from getAllTransactions
     const type = (page as any).type;
 
+    // Formula property requires special handling
+    const realUsdAmount = props['\uD83D\uDCB8 Real USD Expense']?.formula?.number ?? null;
+
     return {
       id: page.id,
       date: getProperty(props.Date) || new Date().toISOString().split('T')[0],
@@ -83,6 +86,9 @@ export const transformTransactionData = (notionPages: any[]): any[] => {
       amount: amount,
       type: type, // 'income' or 'expense'
       category: getProperty(props.Tags) || 'Other',
+      currency: getProperty(props.Currency) || 'USD',
+      exchangeRate: getProperty(props['Exchange Rate Used']) ?? null,
+      realUsdAmount,
     };
   });
 };

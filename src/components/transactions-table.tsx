@@ -74,21 +74,21 @@ const expenseCategories = [
 ];
 
 const incomeCategories = [
-    { value: 'Salary', label: '💼 Salary' },
-    { value: 'Bonus', label: '🏆 Bonus' },
-    { value: 'Freelance', label: '✍️ Freelance' },
-    { value: 'Dividends', label: '📈 Dividends' },
-    { value: 'Interest', label: '💰 Interest' },
-    { value: 'Side Hustle', label: '🚀 Side Hustle' },
-    { value: 'Loan', label: '🏦 Loan' },
+  { value: 'Salary', label: '💼 Salary' },
+  { value: 'Bonus', label: '🏆 Bonus' },
+  { value: 'Freelance', label: '✍️ Freelance' },
+  { value: 'Dividends', label: '📈 Dividends' },
+  { value: 'Interest', label: '💰 Interest' },
+  { value: 'Side Hustle', label: '🚀 Side Hustle' },
+  { value: 'Loan', label: '🏦 Loan' },
 ];
 
 const allCategories = [...expenseCategories, ...incomeCategories];
 
 
 const getCategoryLabel = (value: string) => {
-    const category = allCategories.find(c => c.value === value);
-    return category ? category.label : value;
+  const category = allCategories.find(c => c.value === value);
+  return category ? category.label : value;
 }
 
 
@@ -112,27 +112,27 @@ export function TransactionsTable({
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-        const descriptionMatch = t.description.toLowerCase().includes(filter.toLowerCase());
-        if (!startDate && !endDate) {
-            return descriptionMatch;
-        }
-        
-        const transactionDateParts = t.date.split('-').map(Number);
-        const transactionDate = new Date(Date.UTC(transactionDateParts[0], transactionDateParts[1] - 1, transactionDateParts[2]));
+      const descriptionMatch = t.description.toLowerCase().includes(filter.toLowerCase());
+      if (!startDate && !endDate) {
+        return descriptionMatch;
+      }
 
-        let startDateMatch = true;
-        if (startDate) {
-            const start = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
-            startDateMatch = transactionDate >= start;
-        }
+      const transactionDateParts = t.date.split('-').map(Number);
+      const transactionDate = new Date(Date.UTC(transactionDateParts[0], transactionDateParts[1] - 1, transactionDateParts[2]));
 
-        let endDateMatch = true;
-        if (endDate) {
-            const end = new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999));
-            endDateMatch = transactionDate <= end;
-        }
+      let startDateMatch = true;
+      if (startDate) {
+        const start = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
+        startDateMatch = transactionDate >= start;
+      }
 
-        return descriptionMatch && startDateMatch && endDateMatch;
+      let endDateMatch = true;
+      if (endDate) {
+        const end = new Date(Date.UTC(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999));
+        endDateMatch = transactionDate <= end;
+      }
+
+      return descriptionMatch && startDateMatch && endDateMatch;
     });
   }, [transactions, filter, startDate, endDate]);
 
@@ -166,7 +166,7 @@ export function TransactionsTable({
       // Revert UI change if update fails
       setTransactions(originalTransactions);
     } else {
-        router.refresh();
+      router.refresh();
     }
   };
 
@@ -206,59 +206,59 @@ export function TransactionsTable({
         </CardDescription>
       </CardHeader>
       <CardContent>
-         <div className="flex flex-wrap items-center gap-4 mb-4">
-            <Input 
-              placeholder="Search by description..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="flex-grow max-w-sm"
-            />
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-[240px] justify-start text-left font-normal",
-                    !startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "PPP") : <span>Start date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={setStartDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-             <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-[240px] justify-start text-left font-normal",
-                    !endDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, "PPP") : <span>End date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={setEndDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            <Button variant="ghost" onClick={() => { setStartDate(undefined); setEndDate(undefined); }}>Clear</Button>
-          </div>
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <Input
+            placeholder="Search by description..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="flex-grow max-w-sm"
+          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !startDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {startDate ? format(startDate, "PPP") : <span>Start date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate}
+                onSelect={setStartDate}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !endDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {endDate ? format(endDate, "PPP") : <span>End date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={endDate}
+                onSelect={setEndDate}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          <Button variant="ghost" onClick={() => { setStartDate(undefined); setEndDate(undefined); }}>Clear</Button>
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -266,6 +266,8 @@ export function TransactionsTable({
               <TableHead>Description</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Currency</TableHead>
+              <TableHead>Real USD</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -307,7 +309,7 @@ export function TransactionsTable({
                       <SelectTrigger className="w-[180px] border-none bg-transparent p-0 h-auto focus:ring-0">
                         <Badge variant="outline">
                           <SelectValue placeholder="Select category" >
-                              {getCategoryLabel(transaction.category)}
+                            {getCategoryLabel(transaction.category)}
                           </SelectValue>
                         </Badge>
                       </SelectTrigger>
@@ -331,12 +333,41 @@ export function TransactionsTable({
                           e.target.value
                         )
                       }
-                      className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${
-                        transaction.type === 'income'
-                          ? 'text-primary'
-                          : 'text-destructive'
-                      }`}
+                      className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${transaction.type === 'income'
+                        ? 'text-primary'
+                        : 'text-destructive'
+                        }`}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {transaction.type === 'income' ? (
+                      <Select
+                        value={transaction.currency || 'USD'}
+                        onValueChange={value =>
+                          handleInputChange(transaction.id, 'currency', value)
+                        }
+                      >
+                        <SelectTrigger className="w-[90px] border-none bg-transparent p-0 h-auto focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">🇺🇸 USD</SelectItem>
+                          <SelectItem value="VES">🇻🇪 VES</SelectItem>
+                          <SelectItem value="USDT">USDT</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {transaction.realUsdAmount != null ? (
+                      <span className="font-mono text-sm text-muted-foreground">
+                        ${transaction.realUsdAmount.toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <AlertDialog>
@@ -370,21 +401,21 @@ export function TransactionsTable({
         </Table>
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-2 mt-4">
-              <Button onClick={() => setPage(1)} disabled={page === 1} variant="outline" size="icon">
-                <ChevronsLeft className="h-4 w-4" />
-              </Button>
-              <Button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} variant="outline" size="icon">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              <Button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} variant="outline" size="icon">
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button onClick={() => setPage(totalPages)} disabled={page === totalPages} variant="outline" size="icon">
-                <ChevronsRight className="h-4 w-4" />
-              </Button>
+            <Button onClick={() => setPage(1)} disabled={page === 1} variant="outline" size="icon">
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} variant="outline" size="icon">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} variant="outline" size="icon">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => setPage(totalPages)} disabled={page === totalPages} variant="outline" size="icon">
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
           </div>
         )}
       </CardContent>
