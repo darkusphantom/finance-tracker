@@ -340,25 +340,21 @@ export function TransactionsTable({
                     />
                   </TableCell>
                   <TableCell>
-                    {transaction.type === 'income' ? (
-                      <Select
-                        value={transaction.currency || 'USD'}
-                        onValueChange={value =>
-                          handleInputChange(transaction.id, 'currency', value)
-                        }
-                      >
-                        <SelectTrigger className="w-[90px] border-none bg-transparent p-0 h-auto focus:ring-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="USD">🇺🇸 USD</SelectItem>
-                          <SelectItem value="VES">🇻🇪 VES</SelectItem>
-                          <SelectItem value="USDT">USDT</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
+                    <Select
+                      value={transaction.currency || 'USD'}
+                      onValueChange={value =>
+                        handleInputChange(transaction.id, 'currency', value)
+                      }
+                    >
+                      <SelectTrigger className="w-[90px] border-none bg-transparent p-0 h-auto focus:ring-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">🇺🇸 USD</SelectItem>
+                        <SelectItem value="VES">🇻🇪 VES</SelectItem>
+                        <SelectItem value="USDT">USDT</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     {transaction.realUsdAmount != null ? (
