@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { format, getMonth, getYear, startOfMonth, subMonths } from 'date-fns';
+import { format, getMonth, getYear, parseISO } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -40,6 +40,8 @@ export const transformAccountData = (notionPages: any[]): any[] => {
       balance: getProperty(props['Balance Amount']) || 0,
       isActive: getProperty(props['Is Active']) || false,
       currency: getProperty(props.Currency) || 'USD',
+      accountNumber: getProperty(props['Account Number']) || null,
+      lastTransactionDate: getProperty(props['Last Transaction Date']) || null,
     };
   });
 };
@@ -154,40 +156,47 @@ export const transformMonthlySavingsData = (notionPages: any[]): any[] => {
 };
 
 export const calculateFinancialSummary = (transactions: any[], year: number) => {
+  // Use parseISO so 'YYYY-MM-DD' is treated as local midnight, not UTC midnight.
+  // new Date('2026-01-01') is UTC midnight → in UTC-4 that's Dec 31 at 20:00 local,
+  // which breaks month/year grouping. parseISO('2026-01-01') = Jan 1 local midnight.
   const yearTransactions = transactions.filter(t => {
-    const date = new Date(t.date);
+    const date = parseISO(t.date);
     return getYear(date) === year;
   });
 
+  // Prefer realUsdAmount (Notion formula) so amounts are always in USD.
+  // Fall back to raw amount only for records without a formula result (USD transactions).
+  const usd = (t: any) => t.realUsdAmount ?? t.amount;
+
   const annualTotalIncome = yearTransactions
     .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + usd(t), 0);
 
   const annualTotalExpenses = Math.abs(
     yearTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0)
+      .reduce((sum, t) => sum + usd(t), 0)
   );
-  
+
   const annualNet = annualTotalIncome - annualTotalExpenses;
 
-  // Annual Summary for chart
+  // Monthly breakdown for the bar chart (only months with data)
   const months = Array.from({ length: 12 }, (_, i) => i); // 0-11
 
   const annualChartData = months.map(month => {
     const monthTransactions = yearTransactions.filter(t => {
-      const date = new Date(t.date);
+      const date = parseISO(t.date);
       return getMonth(date) === month;
     });
 
     const income = monthTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + usd(t), 0);
 
     const expenses = Math.abs(
       monthTransactions
         .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .reduce((sum, t) => sum + usd(t), 0)
     );
 
     const net = income - expenses;

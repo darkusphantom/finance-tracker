@@ -291,6 +291,7 @@ export function AccountBalances({
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
+              <TableHead>Last Tx</TableHead>
               {isEditable && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -309,19 +310,28 @@ export function AccountBalances({
                         disabled={!isEditable}
                     />
                   </TableCell>
-                  <TableCell className="font-medium flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-muted-foreground" />
-                    {isEditable ? (
-                      <Input
-                        value={account.name}
-                        onChange={e =>
-                          handleInputChange(account.id, 'name', e.target.value)
-                        }
-                        className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                      />
-                    ) : (
-                      <span>{account.name}</span>
-                    )}
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <div className="flex flex-col">
+                        {isEditable ? (
+                          <Input
+                            value={account.name}
+                            onChange={e =>
+                              handleInputChange(account.id, 'name', e.target.value)
+                            }
+                            className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                          />
+                        ) : (
+                          <span>{account.name}</span>
+                        )}
+                        {account.accountNumber && (
+                          <span className="text-xs text-muted-foreground font-mono">
+                            #{account.accountNumber}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     {isEditable ? (
@@ -403,6 +413,14 @@ export function AccountBalances({
                         }).format(account.balance)}
                       </span>
                     )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                    {account.lastTransactionDate
+                      ? (() => {
+                          const [y, m, d] = account.lastTransactionDate.split('-');
+                          return `${d}/${m}/${y}`;
+                        })()
+                      : '—'}
                   </TableCell>
                   {isEditable && (
                     <TableCell className="text-right">

@@ -46,6 +46,7 @@ import {
   suggestCategoryAction,
   extractTransactionAction,
   addTransactionAction,
+  getActiveAccountsAction,
 } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -102,6 +103,7 @@ const formSchema = z.object({
   }),
   currency: z.string().optional(),
   exchangeRate: z.coerce.number().optional(),
+  accountId: z.string().optional(),
 });
 
 type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string, category?: string };
@@ -119,6 +121,7 @@ export function AddTransactionForm({
   const [showContinueDialog, setShowContinueDialog] = useState(false);
   const [scannedTransactions, setScannedTransactions] = useState<ScannedTransaction[]>([]);
   const [scannedDate, setScannedDate] = useState<Date>(new Date());
+  const [activeAccounts, setActiveAccounts] = useState<any[]>([]);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -133,7 +136,14 @@ export function AddTransactionForm({
       date: format(new Date(), 'yyyy-MM-dd'),
       currency: 'VES',
       exchangeRate: undefined,
+      accountId: undefined,
     },
+  });
+
+
+
+  useState(() => {
+    getActiveAccountsAction().then(res => setActiveAccounts(res.accounts));
   });
 
   const transactionType = useWatch({
@@ -146,7 +156,13 @@ export function AddTransactionForm({
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    const result = await addTransactionAction(values);
+
+    // Find the selected account's current balance to pass to the action
+    const selectedAccount = activeAccounts.find(a => a.id === values.accountId);
+    const result = await addTransactionAction({
+      ...values,
+      accountBalance: selectedAccount?.balance,
+    });
 
     if (result.success) {
       toast({
@@ -289,6 +305,7 @@ export function AddTransactionForm({
         date: format(new Date(), 'yyyy-MM-dd'),
         currency: 'VES',
         exchangeRate: undefined,
+        accountId: undefined,
       });
     } else {
       afterSubmit?.();
@@ -491,6 +508,49 @@ export function AddTransactionForm({
                 )}
               />
             </div>
+
+            {/* Account selector — filtered by selected currency */}
+            <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Account
+                    {activeAccounts.length === 0 && form.getValues('currency') && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (no active {form.getValues('currency')} accounts)
+                      </span>
+                    )}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? ''}
+                    disabled={activeAccounts.length === 0}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account (optional)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {activeAccounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <span className="font-medium">{account.name}</span>
+                          <span className="ml-2 text-muted-foreground font-mono text-xs">
+                            {new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: account.currency === 'USDT' ? 'USD' : account.currency,
+                            }).format(account.balance)}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
           <div className="space-y-4">
             <Button

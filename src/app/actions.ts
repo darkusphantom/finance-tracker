@@ -21,8 +21,10 @@ import {
   updatePage,
   findOrCreateMonthPage,
   findUserByUsernameOrEmail,
-  createUser
+  createUser,
+  getAccounts,
 } from '@/lib/notion';
+import { transformAccountData } from '@/lib/utils';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
@@ -162,6 +164,9 @@ const addTransactionSchema = z.object({
   }),
   currency: z.string().optional(),
   exchangeRate: z.coerce.number().optional(),
+  // Account to update after the transaction is recorded
+  accountId: z.string().optional(),
+  accountBalance: z.coerce.number().optional(),
 });
 
 export async function addTransactionAction(values: unknown) {
@@ -171,7 +176,7 @@ export async function addTransactionAction(values: unknown) {
   }
 
   try {
-    const { description, amount, category, date, type, currency, exchangeRate } = parsed.data;
+    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance } = parsed.data;
 
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
@@ -202,10 +207,34 @@ export async function addTransactionAction(values: unknown) {
     }
 
     await addPageToDb(databaseId, notionProperties);
+
+    // Update account balance if an account was selected
+    if (accountId && accountBalance !== undefined) {
+      const newBalance =
+        type === 'income'
+          ? accountBalance + transactionAmount
+          : accountBalance - transactionAmount;
+      await updatePage(accountId, {
+        'Balance Amount': { number: newBalance },
+        'Last Transaction Date': { date: { start: date } },
+      });
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Failed to add transaction to Notion:', error);
     return { error: 'Failed to save transaction.' };
+  }
+}
+
+export async function getActiveAccountsAction() {
+  try {
+    const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
+    const accounts = transformAccountData(rawAccounts);
+    return { accounts: accounts.filter((a: any) => a.isActive) };
+  } catch (error) {
+    console.error('Failed to fetch active accounts:', error);
+    return { accounts: [] };
   }
 }
 

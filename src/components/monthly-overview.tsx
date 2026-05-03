@@ -30,17 +30,17 @@ function StatCard({
     variant === 'income'
       ? 'text-primary'
       : variant === 'expense'
-      ? 'text-destructive'
-      : value >= 0
-      ? 'text-primary'
-      : 'text-destructive';
+        ? 'text-destructive'
+        : value >= 0
+          ? 'text-primary'
+          : 'text-destructive';
 
   const Icon =
     variant === 'income'
       ? TrendingUp
       : variant === 'expense'
-      ? TrendingDown
-      : Minus;
+        ? TrendingDown
+        : Minus;
 
   const prefix = variant === 'income' ? '+' : variant === 'expense' ? '-' : value >= 0 ? '+' : '';
 
@@ -83,12 +83,16 @@ export function MonthlyOverview({
     );
   }
 
+  // ── Annual totals: sum of all filtered months ────────────────────────────
+  const annualIncome   = filtered.reduce((s, m) => s + m.totalIncome, 0);
+  const annualExpenses = filtered.reduce((s, m) => s + m.totalExpenses, 0);
+  const annualNet      = filtered.reduce((s, m) => s + m.net, 0);
+
   // Most recent month is first (sorted descending by Month Number)
-  const current = filtered[0];
+  const current  = filtered[0];
   const previous = filtered[1] ?? null;
 
-  const netTrend =
-    previous !== null ? current.net - previous.net : null;
+  const netTrend = previous !== null ? current.net - previous.net : null;
 
   return (
     <Card>
@@ -97,7 +101,7 @@ export function MonthlyOverview({
           <div>
             <CardTitle>Monthly Overview</CardTitle>
             <CardDescription>
-              Real USD totals for <span className="font-medium text-foreground">{current.name}</span>
+              Real USD totals for <span className="font-medium text-foreground">{currentYear}</span>
             </CardDescription>
           </div>
           {netTrend !== null && (
@@ -109,14 +113,32 @@ export function MonthlyOverview({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Current month stats */}
-        <div className="grid grid-cols-3 gap-4 rounded-lg border p-4">
-          <StatCard label="Income" value={current.totalIncome} variant="income" />
-          <StatCard label="Expenses" value={current.totalExpenses} variant="expense" />
-          <StatCard label="Net" value={current.net} variant="net" />
+
+        {/* ── Annual totals ──────────────────────────────── */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            Annual Summary ({currentYear})
+          </p>
+          <div className="grid grid-cols-3 gap-4 rounded-lg border bg-muted/30 p-4">
+            <StatCard label="Income" value={annualIncome}   variant="income"  />
+            <StatCard label="Expenses" value={annualExpenses} variant="expense" />
+            <StatCard label="Net"    value={annualNet}     variant="net"     />
+          </div>
         </div>
 
-        {/* Historical rows */}
+        {/* ── Current month ──────────────────────────────── */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            {current.name}
+          </p>
+          <div className="grid grid-cols-3 gap-4 rounded-lg border p-4">
+            <StatCard label="Income"   value={current.totalIncome}   variant="income"  />
+            <StatCard label="Expenses" value={current.totalExpenses} variant="expense" />
+            <StatCard label="Net"      value={current.net}           variant="net"     />
+          </div>
+        </div>
+
+        {/* ── Historical rows ────────────────────────────── */}
         {filtered.length > 1 && (
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -135,9 +157,7 @@ export function MonthlyOverview({
                   -${month.totalExpenses.toFixed(2)}
                 </span>
                 <span
-                  className={`font-mono font-semibold ${
-                    month.net >= 0 ? 'text-primary' : 'text-destructive'
-                  }`}
+                  className={`font-mono font-semibold ${month.net >= 0 ? 'text-primary' : 'text-destructive'}`}
                 >
                   {month.net >= 0 ? '+' : ''}${month.net.toFixed(2)}
                 </span>
