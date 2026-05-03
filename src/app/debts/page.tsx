@@ -22,7 +22,7 @@ export default async function DebtsPage() {
         </div>
       </header>
       <main>
-        <Debts initialDebts={debts}/>
+        <Debts initialDebts={debts} />
       </main>
     </DashboardLayout>
   );

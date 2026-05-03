@@ -24,6 +24,10 @@ export const getProperty = (prop: any) => {
       return prop.checkbox;
     case 'email':
       return prop.email;
+    case 'formula':
+      return prop.formula?.number ?? prop.formula?.string ?? prop.formula?.boolean ?? null;
+    case 'rollup':
+      return prop.rollup?.number ?? prop.rollup?.date?.start ?? prop.rollup?.array ?? null;
     default:
       return null;
   }
@@ -53,11 +57,7 @@ export const transformDebtData = (notionPages: any[]): any[] => {
     const total = getProperty(props['Debt Amount']) || 0;
     const status = getProperty(props.Status);
     const type = getProperty(props.Type);
-
-    // If status is "Listo" (Done), the paid amount is the total amount.
-    // Otherwise, we assume 0 is paid for simplicity. This can be adjusted
-    // if a "Paid Amount" property is added to Notion.
-    const paid = status === 'Listo' ? total : 0;
+    const paid = getProperty(props['Amount Paid']) || 0;
 
     return {
       id: page.id,
@@ -66,6 +66,10 @@ export const transformDebtData = (notionPages: any[]): any[] => {
       total: total,
       paid: paid,
       status: status || 'Pending',
+      saldoPendiente: getProperty(props['⚖️ Saldo Pendiente']) || 0,
+      estadoDeuda: getProperty(props['Estado Deuda']) || '⚪ Sin datos',
+      reason: getProperty(props.Reason) || '',
+      date: getProperty(props.Date) || null,
     };
   });
 };

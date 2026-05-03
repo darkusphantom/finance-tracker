@@ -314,12 +314,68 @@ export async function addAccountAction() {
   }
 }
 
+const updateAccountSchema = z.object({
+  id: z.string(),
+  field: z.string(),
+  value: z.any(),
+});
+
+export async function updateAccountAction(values: unknown) {
+  const parsed = updateAccountSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
+
+  try {
+    const { id, field, value } = parsed.data;
+    let notionProperty;
+    switch (field) {
+      case 'name':
+        notionProperty = { Name: { title: [{ text: { content: value } }] } };
+        break;
+      case 'type':
+        notionProperty = { 'Account Type': { select: { name: value } } };
+        break;
+      case 'currency':
+        notionProperty = { Currency: { select: { name: value } } };
+        break;
+      case 'balance':
+        notionProperty = { 'Balance Amount': { number: parseFloat(value) || 0 } };
+        break;
+      case 'isActive':
+        notionProperty = { 'Is Active': { checkbox: value } };
+        break;
+      case 'accountNumber':
+        notionProperty = { 'Account Number': { rich_text: [{ text: { content: value } }] } };
+        break;
+      default:
+        return { error: 'Invalid field.' };
+    }
+    await updatePage(id, notionProperty);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update account in Notion:', error);
+    return { error: 'Failed to update account.' };
+  }
+}
+
+export async function deleteAccountAction(id: string) {
+  try {
+    await deletePage(id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to delete account in Notion:', error);
+    return { error: 'Failed to delete account.' };
+  }
+}
+
 export async function addDebtAction() {
   try {
     const notionProperties = {
       Title: { title: [{ text: { content: 'New Debt' } }] },
       Type: { select: { name: 'Deuda' } },
       'Debt Amount': { number: 0 },
+      'Amount Paid': { number: 0 },
       Status: { select: { name: 'Pendiente' } },
     };
     const newPage = await addPageToDb(
@@ -354,6 +410,18 @@ export async function updateDebtAction(values: unknown) {
         break;
       case 'total':
         notionProperty = { 'Debt Amount': { number: parseFloat(value) || 0 } };
+        break;
+      case 'paid':
+        notionProperty = { 'Amount Paid': { number: parseFloat(value) || 0 } };
+        break;
+      case 'status':
+        notionProperty = { Status: { select: { name: value } } };
+        break;
+      case 'reason':
+        notionProperty = { Reason: { rich_text: [{ text: { content: value } }] } };
+        break;
+      case 'date':
+        notionProperty = { Date: { date: value ? { start: value } : null } };
         break;
       case 'type':
         notionProperty = {
