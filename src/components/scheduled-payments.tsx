@@ -44,6 +44,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Button } from './ui/button';
 import { PlusCircle, Trash2, Loader2, ArrowUpDown, Pencil } from 'lucide-react';
 import {
@@ -84,7 +85,7 @@ function EditPaymentModal({
     setIsSaving(true);
     const fieldsToUpdate: Array<{ field: string; value: any }> = [];
 
-    const tracked = ['name', 'day', 'amount', 'type'];
+    const tracked = ['name', 'day', 'amount', 'type', 'isActive'];
     for (const field of tracked) {
       if (form[field] !== item[field]) {
         fieldsToUpdate.push({ field, value: form[field] });
@@ -145,6 +146,14 @@ function EditPaymentModal({
               </SelectContent>
             </Select>
           </div>
+
+          <div className="flex items-center justify-between mt-2">
+            <Label>Active Status</Label>
+            <Switch
+              checked={form.isActive ?? true}
+              onCheckedChange={val => handleField('isActive', val)}
+            />
+          </div>
         </div>
 
         <DialogFooter>
@@ -188,6 +197,7 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
       amount: 0,
       type: 'variable' as const,
       category,
+      isActive: true,
     };
 
     const result = await addScheduledPaymentAction(newItem);
@@ -246,8 +256,8 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
   const incomeItems = useMemo(() => sortItems(items.filter(item => item.category === 'income'), incomeSort), [items, incomeSort]);
   const expenseItems = useMemo(() => sortItems(items.filter(item => item.category === 'expense'), expenseSort), [items, expenseSort]);
 
-  const totalIncome = useMemo(() => incomeItems.reduce((acc, item) => acc + (item.amount || 0), 0), [incomeItems]);
-  const totalExpenses = useMemo(() => expenseItems.reduce((acc, item) => acc + (item.amount || 0), 0), [expenseItems]);
+  const totalIncome = useMemo(() => incomeItems.reduce((acc, item) => acc + (item.isActive !== false ? (item.amount || 0) : 0), 0), [incomeItems]);
+  const totalExpenses = useMemo(() => expenseItems.reduce((acc, item) => acc + (item.isActive !== false ? (item.amount || 0) : 0), 0), [expenseItems]);
 
 
   const handleSort = (category: 'income' | 'expense', key: string) => {
@@ -306,9 +316,14 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
         </TableHeader>
         <TableBody>
           {data.map(item => (
-            <TableRow key={item.tempId}>
+            <TableRow key={item.tempId} className={item.isActive === false ? 'opacity-50 grayscale' : ''}>
               <TableCell>
-                <div className='font-medium'>{item.name}</div>
+                <div className="flex items-center gap-2">
+                  <span className='font-medium'>{item.name}</span>
+                  {item.isActive === false && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5">Inactive</Badge>
+                  )}
+                </div>
               </TableCell>
               <TableCell className='text-center'>
                 <Badge variant="outline">{item.day}</Badge>

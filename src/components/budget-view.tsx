@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import {
@@ -103,9 +102,8 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
           <div className="flex flex-col gap-2">
             <p className="text-sm text-muted-foreground uppercase tracking-wide">Net Balance (USD)</p>
             <p
-              className={`text-3xl font-bold ${
-                monthNet >= 0 ? 'text-primary' : 'text-destructive'
-              }`}
+              className={`text-3xl font-bold ${monthNet >= 0 ? 'text-primary' : 'text-destructive'
+                }`}
             >
               {formatCurrency(monthNet)}
             </p>
@@ -134,15 +132,14 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span
-                      className={`font-mono font-bold text-lg ${
-                        t.type === 'income' ? 'text-primary' : 'text-destructive'
-                      }`}
+                      className={`font-mono font-bold text-lg ${t.type === 'income' ? 'text-primary' : 'text-destructive'
+                        }`}
                     >
                       {t.type === 'income' ? '+' : '-'}{formatCurrency(t.realUsdAmount || 0)}
                     </span>
                     {t.currency !== 'USD' && (
                       <span className="text-xs font-mono text-muted-foreground">
-                         Local: {new Intl.NumberFormat('en-US', { style: 'currency', currency: t.currency }).format(t.amount)}
+                        Local: {new Intl.NumberFormat('en-US', { style: 'currency', currency: t.currency }).format(t.amount)}
                       </span>
                     )}
                   </div>
@@ -150,7 +147,7 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
               ))
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border rounded-lg border-dashed">
-                 <p>No transactions found for this month.</p>
+                <p>No transactions found for this month.</p>
               </div>
             )}
           </div>

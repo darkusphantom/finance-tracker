@@ -132,6 +132,7 @@ export const transformScheduledPaymentsData = (notionPages: any[]): any[] => {
       amount: getProperty(props['Budget Amount']) || 0,
       type: type === 'Fijo' ? 'fixed' : 'variable',
       category: category === 'Ingreso' ? 'income' : 'expense',
+      isActive: getProperty(props.IsActive) ?? true,
     };
   });
 };

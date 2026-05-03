@@ -445,6 +445,7 @@ const scheduledPaymentSchema = z.object({
   amount: z.coerce.number(),
   type: z.enum(['fixed', 'variable']),
   category: z.enum(['income', 'expense']),
+  isActive: z.boolean().optional().default(true),
 });
 
 export async function addScheduledPaymentAction(
@@ -456,13 +457,14 @@ export async function addScheduledPaymentAction(
   }
 
   try {
-    const { name, day, amount, type, category } = parsed.data;
+    const { name, day, amount, type, category, isActive } = parsed.data;
     const notionProperties = {
       Name: { title: [{ text: { content: name } }] },
       'Month Day': { number: day },
       'Budget Amount': { number: amount },
       Type: { select: { name: type === 'fixed' ? 'Fijo' : 'Variable' } },
       Category: { select: { name: category === 'income' ? 'Ingreso' : 'Pago' } },
+      IsActive: { checkbox: isActive },
     };
     const newPage = await addPageToDb(
       process.env.NOTION_BUDGET_DB!,
@@ -504,6 +506,9 @@ export async function updateScheduledPaymentAction(values: unknown) {
         notionProperty = {
           Type: { select: { name: value === 'fixed' ? 'Fijo' : 'Variable' } },
         };
+        break;
+      case 'isActive':
+        notionProperty = { IsActive: { checkbox: value === true || value === 'true' } };
         break;
       default:
         return { error: 'Invalid field.' };
