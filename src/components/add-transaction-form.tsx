@@ -41,7 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2 } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   suggestCategoryAction,
   extractTransactionAction,
@@ -53,9 +53,10 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-import { CurrencyCalculator } from './currency-calculator';
 import type { ExtractTransactionFromImageOutput } from '@/ai/flows/extract-transaction-from-image';
 import { Label } from './ui/label';
+import { useExchangeRates } from '@/hooks/use-exchange-rates';
+import { CurrencyCalculator } from './currency-calculator';
 
 const expenseCategories = [
   { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
@@ -135,7 +136,7 @@ export function AddTransactionForm({
       category: '',
       date: format(new Date(), 'yyyy-MM-dd'),
       currency: 'VES',
-      exchangeRate: undefined,
+      exchangeRate: 0,
       accountId: undefined,
     },
   });
@@ -150,6 +151,27 @@ export function AddTransactionForm({
     control: form.control,
     name: 'type',
   });
+
+  const selectedCurrency = useWatch({
+    control: form.control,
+    name: 'currency',
+  });
+
+  const { rates } = useExchangeRates();
+
+  useEffect(() => {
+    if (rates.length > 0) {
+      const currentExchangeRate = form.getValues('exchangeRate');
+      if (!currentExchangeRate) {
+        const officialRate = rates.find((r: any) => r.fuente === 'oficial');
+        if (officialRate) {
+          form.setValue('exchangeRate', officialRate.promedio);
+        }
+      }
+    }
+  }, [rates, form]);
+
+  const filteredAccounts = activeAccounts.filter(account => account.currency === selectedCurrency);
 
   const categories = transactionType === 'income' ? incomeCategories : expenseCategories;
 
@@ -472,7 +494,23 @@ export function AddTransactionForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Currency</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        // Reset account selection when currency changes
+                        form.setValue('accountId', undefined);
+                        if (value === 'VES') {
+                          const officialRate = rates.find((r: any) => r.fuente === 'oficial');
+                          if (officialRate) {
+                            form.setValue('exchangeRate', officialRate.promedio);
+                          }
+                        } else {
+                          form.setValue('exchangeRate', 0);
+                        }
+                      }}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select currency" />
@@ -517,16 +555,16 @@ export function AddTransactionForm({
                 <FormItem>
                   <FormLabel>
                     Account
-                    {activeAccounts.length === 0 && form.getValues('currency') && (
+                    {filteredAccounts.length === 0 && selectedCurrency && (
                       <span className="text-xs text-muted-foreground ml-2">
-                        (no active {form.getValues('currency')} accounts)
+                        (no active {selectedCurrency} accounts)
                       </span>
                     )}
                   </FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     value={field.value ?? ''}
-                    disabled={activeAccounts.length === 0}
+                    disabled={filteredAccounts.length === 0}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -534,7 +572,7 @@ export function AddTransactionForm({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {activeAccounts.map(account => (
+                      {filteredAccounts.map(account => (
                         <SelectItem key={account.id} value={account.id}>
                           <span className="font-medium">{account.name}</span>
                           <span className="ml-2 text-muted-foreground font-mono text-xs">

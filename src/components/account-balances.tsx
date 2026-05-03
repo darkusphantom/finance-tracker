@@ -56,9 +56,7 @@ import { Separator } from './ui/separator';
 const accountTypes = ['Corriente', 'Ahorro', 'Fisico', 'Credit', 'Investment'];
 const currencies = ['USD', 'VES', 'USDT'];
 
-type ExchangeRate = {
-  promedio: number;
-};
+import { useExchangeRates } from '@/hooks/use-exchange-rates';
 
 const formatCurrency = (value: number, currency: string) => {
   const displayCurrency = currency === 'USDT' ? 'USD' : currency;
@@ -244,8 +242,11 @@ export function AccountBalances({
   const [sort, setSort] = useState({ key: 'name', order: 'asc' });
   const [page, setPage] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
-  const [officialRate, setOfficialRate] = useState<number | null>(null);
-  const [rateLoading, setRateLoading] = useState(true);
+  const { rates, loading: rateLoading } = useExchangeRates();
+  const officialRate = useMemo(() => {
+    const rate = rates.find(r => r.nombre === 'Oficial');
+    return rate ? rate.promedio : null;
+  }, [rates]);
 
   const itemsPerPage = isEditable ? 15 : 10;
   const { toast } = useToast();
@@ -254,30 +255,6 @@ export function AccountBalances({
   useEffect(() => {
     setAccounts([...initialAccounts]);
   }, [initialAccounts]);
-
-  useEffect(() => {
-    const fetchRate = async () => {
-      try {
-        setRateLoading(true);
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-        if (!response.ok) {
-          throw new Error('Failed to fetch exchange rate.');
-        }
-        const data: ExchangeRate = await response.json();
-        setOfficialRate(data.promedio);
-      } catch (err) {
-        console.error(err);
-        toast({
-          title: 'Error fetching rate',
-          description: 'Could not fetch the official exchange rate.',
-          variant: 'destructive',
-        });
-      } finally {
-        setRateLoading(false);
-      }
-    };
-    fetchRate();
-  }, [toast]);
 
 
   const { totalBalanceUSD, totalBalanceVES } = useMemo(() => {

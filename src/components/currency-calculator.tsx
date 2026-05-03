@@ -29,45 +29,15 @@ const formatCurrency = (value: number, currency = 'VES') => {
     }).format(value);
 };
 
-type ExchangeRate = {
-  fuente: string;
-  nombre: string;
-  compra: number;
-  venta: number;
-  promedio: number;
-  fechaActualizacion: string;
-};
+import { useExchangeRates } from '@/hooks/use-exchange-rates';
 
 export function CurrencyCalculator({ showTitle = true }: { showTitle?: boolean }) {
-  const [rates, setRates] = useState<ExchangeRate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { rates, loading, error } = useExchangeRates();
   const [usdAmount, setUsdAmount] = useState<string>('1');
   const [vesAmount, setVesAmount] = useState<string>('');
   const [selectedRateName, setSelectedRateName] = useState<string>('Oficial');
   
   const selectedRate = rates.find(r => r.nombre === selectedRateName) || rates.find(r => r.nombre === 'Oficial') || rates[0];
-
-  useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares');
-        if (!response.ok) {
-          throw new Error('Failed to fetch exchange rates.');
-        }
-        const data = await response.json();
-        setRates(data);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRates();
-  }, []);
   
   useEffect(() => {
     if (selectedRate) {
