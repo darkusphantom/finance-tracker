@@ -131,7 +131,7 @@ export function AddTransactionForm({
       type: 'expense',
       category: '',
       date: format(new Date(), 'yyyy-MM-dd'),
-      currency: 'USD',
+      currency: 'VES',
       exchangeRate: undefined,
     },
   });
@@ -287,7 +287,7 @@ export function AddTransactionForm({
         type: 'expense',
         category: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        currency: 'USD',
+        currency: 'VES',
         exchangeRate: undefined,
       });
     } else {
@@ -462,10 +462,10 @@ export function AddTransactionForm({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="USD">🇺🇸 USD</SelectItem>
                         <SelectItem value="VES">🇻🇪 VES</SelectItem>
+                        <SelectItem value="USD">🇺🇸 USD</SelectItem>
                         <SelectItem value="USDT">USDT</SelectItem>
-                        ¿                        </SelectContent>
+                      </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
