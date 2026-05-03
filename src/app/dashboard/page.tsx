@@ -1,11 +1,13 @@
 import { AccountBalances } from '@/components/account-balances';
 import { Debts } from '@/components/debts';
 import { FinancialChart } from '@/components/financial-chart';
-import { getAccounts, getAllTransactions, getDebts } from '@/lib/notion';
+import { MonthlyOverview } from '@/components/monthly-overview';
+import { getAccounts, getAllTransactions, getDebts, getMonthlySavings } from '@/lib/notion';
 import {
   transformAccountData,
   transformDebtData,
   transformTransactionData,
+  transformMonthlySavingsData,
 } from '@/lib/utils';
 import { DashboardClientLayout } from '@/components/dashboard-client-layout';
 
@@ -24,9 +26,13 @@ export default async function DashboardPage() {
   );
   const transactions = transformTransactionData(rawTransactions);
 
+  const rawMonthlySavings = await getMonthlySavings(process.env.NOTION_TOTAL_SAVINGS_DB!);
+  const monthlySavings = transformMonthlySavingsData(rawMonthlySavings);
+
   return (
     <DashboardClientLayout>
       <main className="space-y-6">
+        <MonthlyOverview monthlySavings={monthlySavings} />
         <FinancialChart transactions={transactions} />
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2">

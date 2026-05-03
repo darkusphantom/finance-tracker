@@ -130,6 +130,29 @@ export const transformScheduledPaymentsData = (notionPages: any[]): any[] => {
   });
 };
 
+export const transformMonthlySavingsData = (notionPages: any[]): any[] => {
+  if (!notionPages) return [];
+  return notionPages.map(page => {
+    const props = (page as any).properties;
+
+    // Rollup fields (sum of real USD values from related records)
+    const totalIncome: number = props['Total Monthly Income']?.rollup?.number ?? 0;
+    const totalExpenses: number = props['Total Monthly Expenses']?.rollup?.number ?? 0;
+
+    // Formula fields (pre-formatted strings from Notion, useful as fallback)
+    const netFormula: number = props['Monthly Net']?.formula?.number ?? (totalIncome - totalExpenses);
+
+    return {
+      id: page.id,
+      name: getProperty(props.Name) || 'Unknown Month',
+      monthNumber: props['Month Number']?.number ?? 0,
+      totalIncome,
+      totalExpenses,
+      net: netFormula,
+    };
+  });
+};
+
 export const calculateFinancialSummary = (transactions: any[], year: number) => {
   const yearTransactions = transactions.filter(t => {
     const date = new Date(t.date);
