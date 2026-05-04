@@ -1,4 +1,4 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -45,6 +45,7 @@ const nextConfig: NextConfig = {
     NOTION_ACCOUNTS_DB: process.env.NOTION_ACCOUNTS_DB,
     NOTION_DEBTS_DB: process.env.NOTION_DEBTS_DB,
     NOTION_BUDGET_DB: process.env.NOTION_BUDGET_DB,
+    NOTION_TRANSFER_DB: process.env.NOTION_TRANSFER_DB,
   }
 };
 

@@ -143,9 +143,9 @@ export function AddTransactionForm({
 
 
 
-  useState(() => {
+  useEffect(() => {
     getActiveAccountsAction().then(res => setActiveAccounts(res.accounts));
-  });
+  }, []);
 
   const transactionType = useWatch({
     control: form.control,
@@ -191,8 +191,11 @@ export function AddTransactionForm({
         title: 'Transaction Added',
         description: `Your transaction has been added.`,
       });
-      router.refresh();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       setShowContinueDialog(true);
+      router.refresh();
     } else {
       toast({
         title: 'Submission Failed',
@@ -301,8 +304,11 @@ export function AddTransactionForm({
       title: "Batch Add Complete",
       description: `${successCount} of ${scannedTransactions.length} transactions were added.`
     })
-    router.refresh();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setShowContinueDialog(true);
+    router.refresh();
   }
 
   const handleScannedItemChange = (id: string, field: string, value: string | number) => {
