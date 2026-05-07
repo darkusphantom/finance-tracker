@@ -577,3 +577,74 @@ export async function getRiskProfileAnalysisAction(
     return { error: 'Failed to generate risk profile analysis.' };
   }
 }
+
+const updateWishlistItemSchema = z.object({
+  id: z.string(),
+  field: z.string(),
+  value: z.any(),
+});
+
+export async function updateWishlistItemAction(values: unknown) {
+  const parsed = updateWishlistItemSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
+
+  try {
+    const { id, field, value } = parsed.data;
+    let notionProperty;
+    switch (field) {
+      case 'name':
+        notionProperty = { Name: { title: [{ text: { content: value } }] } };
+        break;
+      case 'price':
+        notionProperty = { Price: { number: parseFloat(value) || 0 } };
+        break;
+      case 'priorityLevel':
+        notionProperty = { 'Priority Level': { select: { name: value } } };
+        break;
+      case 'storeLocation':
+        notionProperty = { 'Store Location': { rich_text: [{ text: { content: value } }] } };
+        break;
+      case 'itemCategory':
+        notionProperty = { 'Item Category': { select: { name: value } } };
+        break;
+      case 'purchaseDate':
+        notionProperty = { 'Purchase Date': { date: value ? { start: value } : null } };
+        break;
+      case 'isPurchased':
+        notionProperty = { 'Is Purchased': { checkbox: value === true || value === 'true' } };
+        break;
+      case 'supplierContact':
+        notionProperty = { 'Supplier Contact': { rich_text: [{ text: { content: value } }] } };
+        break;
+      case 'discard':
+        notionProperty = { Discard: { checkbox: value === true || value === 'true' } };
+        break;
+      case 'itemImage':
+        notionProperty = {
+          'Item Image': {
+            files: value
+              ? [
+                  {
+                    name: 'Wishlist Image',
+                    type: 'external',
+                    external: {
+                      url: value,
+                    },
+                  },
+                ]
+              : [],
+          },
+        };
+        break;
+      default:
+        return { error: 'Invalid field.' };
+    }
+    await updatePage(id, notionProperty);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update wishlist item in Notion:', error);
+    return { error: 'Failed to update wishlist item.' };
+  }
+}

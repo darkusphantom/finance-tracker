@@ -137,6 +137,27 @@ export const transformScheduledPaymentsData = (notionPages: any[]): any[] => {
   });
 };
 
+export const transformWishlistData = (notionPages: any[]): any[] => {
+  if (!notionPages) return [];
+  return notionPages.map(page => {
+    const props = (page as any).properties;
+
+    return {
+      id: page.id,
+      name: getProperty(props.Name) || 'N/A',
+      price: getProperty(props.Price) || 0,
+      priorityLevel: getProperty(props['Priority Level']) || '0',
+      storeLocation: getProperty(props['Store Location']) || '',
+      itemCategory: getProperty(props['Item Category']) || 'Other',
+      purchaseDate: getProperty(props['Purchase Date']) || null,
+      isPurchased: getProperty(props['Is Purchased']) || false,
+      supplierContact: getProperty(props['Supplier Contact']) || '',
+      discard: getProperty(props.Discard) || false,
+      itemImage: props['Item Image']?.files?.[0]?.file?.url || props['Item Image']?.files?.[0]?.external?.url || null,
+    };
+  });
+};
+
 export const transformMonthlySavingsData = (notionPages: any[]): any[] => {
   if (!notionPages) return [];
   return notionPages.map(page => {

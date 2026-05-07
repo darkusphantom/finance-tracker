@@ -5,12 +5,15 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
   getAllTransactions,
   getScheduledPayments,
+  getWishlist,
 } from '@/lib/notion';
 import {
   transformTransactionData,
   transformScheduledPaymentsData,
+  transformWishlistData,
 } from '@/lib/utils';
 import { ScheduledPayments } from '@/components/scheduled-payments';
+import { Wishlist } from '@/components/wishlist';
 import { Separator } from '@/components/ui/separator';
 
 export const revalidate = 0;
@@ -27,6 +30,11 @@ export default async function BudgetPage() {
   );
   const scheduledPayments = transformScheduledPaymentsData(rawScheduledPayments);
 
+  const rawWishlist = await getWishlist(
+    process.env.NOTION_WISHLIST_DB!
+  );
+  const wishlist = transformWishlistData(rawWishlist);
+
   return (
     <DashboardLayout>
       <header className="flex justify-between items-center mb-6">
@@ -41,6 +49,8 @@ export default async function BudgetPage() {
         <BudgetView transactions={transactions} />
         <Separator />
         <ScheduledPayments initialItems={scheduledPayments} />
+        <Separator />
+        <Wishlist initialItems={wishlist} />
       </main>
     </DashboardLayout>
   );

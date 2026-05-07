@@ -46,6 +46,7 @@ const nextConfig: NextConfig = {
     NOTION_DEBTS_DB: process.env.NOTION_DEBTS_DB,
     NOTION_BUDGET_DB: process.env.NOTION_BUDGET_DB,
     NOTION_TRANSFER_DB: process.env.NOTION_TRANSFER_DB,
+    NOTION_WISHLIST_DB: process.env.NOTION_WISHLIST_DB,
   }
 };
 
