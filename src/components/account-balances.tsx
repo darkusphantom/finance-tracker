@@ -242,9 +242,12 @@ export function AccountBalances({
   const [sort, setSort] = useState({ key: 'name', order: 'asc' });
   const [page, setPage] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [showPaused, setShowPaused] = useState(false);
+  const [currencyFilter, setCurrencyFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const { rates, loading: rateLoading } = useExchangeRates();
   const officialRate = useMemo(() => {
-    const rate = rates.find(r => r.nombre === 'Oficial');
+    const rate = rates.find(r => r.fuente === 'oficial');
     return rate ? rate.promedio : null;
   }, [rates]);
 
@@ -296,6 +299,18 @@ export function AccountBalances({
       );
     }
 
+    if (!showPaused) {
+      filtered = filtered.filter(account => account.isActive);
+    }
+
+    if (currencyFilter !== 'all') {
+      filtered = filtered.filter(account => account.currency === currencyFilter);
+    }
+
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(account => account.type === typeFilter);
+    }
+
     return filtered.sort((a, b) => {
       const aValue = a[sort.key as keyof typeof a];
       const bValue = b[sort.key as keyof typeof a];
@@ -303,7 +318,7 @@ export function AccountBalances({
       if (aValue > bValue) return sort.order === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [accounts, filter, sort, isEditable]);
+  }, [accounts, filter, sort, isEditable, showPaused, currencyFilter, typeFilter]);
 
   const paginatedAccounts = useMemo(() => {
     if (!isEditable) {
@@ -396,12 +411,43 @@ export function AccountBalances({
       </CardHeader>
       <CardContent>
         {isEditable && (
-          <div className="mb-4">
+          <div className="mb-4 flex flex-col sm:flex-row gap-4 sm:items-center flex-wrap">
             <Input
               placeholder="Search accounts..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
+              className="max-w-xs"
             />
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {accountTypes.map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Currencies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Currencies</SelectItem>
+                {currencies.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center space-x-2 sm:ml-auto">
+              <Checkbox
+                id="showPaused"
+                checked={showPaused}
+                onCheckedChange={(checked) => setShowPaused(checked as boolean)}
+              />
+              <Label htmlFor="showPaused">Show paused accounts</Label>
+            </div>
           </div>
         )}
         <div className="overflow-x-auto">
@@ -409,9 +455,11 @@ export function AccountBalances({
             <TableHeader>
               <TableRow>
                 <TableHead>
-                  <Button variant="ghost" onClick={() => handleSort('isActive')}>
+                  <Button variant="ghost" onClick={() => handleSort('isActive')} disabled={!showPaused}>
                     Paused
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                    {showPaused && (
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    )}
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -476,8 +524,8 @@ export function AccountBalances({
                     <TableCell>
                       <span
                         className={`font-mono ${account.balance >= 0
-                            ? 'text-foreground'
-                            : 'text-destructive'
+                          ? 'text-foreground'
+                          : 'text-destructive'
                           }`}
                       >
                         {new Intl.NumberFormat('en-US', {
