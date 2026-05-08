@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import {
@@ -28,141 +27,129 @@ const formatCurrency = (value: number) => {
 };
 
 export function BudgetView({ transactions = [] }: { transactions: any[] }) {
+  // Focus on the current month by default
   const [date, setDate] = useState<Date>(startOfMonth(new Date()));
-  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
 
-  const handleMonthChange = (month: Date) => {
-    setDate(month);
-    setSelectedDay(month);
+  // You can still navigate months if needed, but the primary focus is the current month
+  const handlePreviousMonth = () => {
+    setDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() - 1);
+      return newDate;
+    });
+  };
+
+  const handleNextMonth = () => {
+    setDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + 1);
+      return newDate;
+    });
   };
 
   const monthTransactions = transactions.filter(t =>
     isSameMonth(parseISO(t.date), date)
-  );
+  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  // Sum using realUsdAmount for accurate totals
   const monthIncome = monthTransactions
     .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + (t.realUsdAmount || 0), 0);
 
   const monthExpenses = Math.abs(
     monthTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0)
+      .reduce((sum, t) => sum + (t.realUsdAmount || 0), 0)
   );
 
   const monthNet = monthIncome - monthExpenses;
 
-  const selectedDayTransactions = transactions
-    .filter(t => isSameDay(parseISO(t.date), selectedDay))
-    .sort((a, b) => b.amount - a.amount);
-
-  const DayWithIndicator = ({ day }: { day: Date }) => {
-    if (!isValid(day)) {
-        return <div></div>
-    }
-
-    const transactionsOnDay = transactions.filter(t =>
-      isSameDay(parseISO(t.date), day)
-    );
-    const hasIncome = transactionsOnDay.some(t => t.type === 'income');
-    const hasExpense = transactionsOnDay.some(t => t.type === 'expense');
-
-    return (
-      <div
-        className="relative flex items-center justify-center h-full"
-      >
-        <span>{format(day, 'd')}</span>
-        <div className="absolute bottom-1 flex space-x-0.5">
-          {hasIncome && <div className="w-1 h-1 rounded-full bg-primary"></div>}
-          {hasExpense && (
-            <div className="w-1 h-1 rounded-full bg-destructive"></div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Monthly Budget</CardTitle>
-        <CardDescription>
-          Visualize your income and expenses for{' '}
-          <strong>{format(date, 'MMMM yyyy')}</strong>.
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Monthly Budget</CardTitle>
+            <CardDescription>
+              Income, expenses, and transactions for{' '}
+              <strong className="text-foreground">{format(date, 'MMMM yyyy')}</strong>.
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handlePreviousMonth} className="px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80">
+              Previous
+            </button>
+            <button onClick={handleNextMonth} className="px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80" disabled={isSameMonth(date, new Date())}>
+              Next
+            </button>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+      <CardContent className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center border-b pb-8">
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">Income</p>
-            <p className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
-              <TrendingUp /> {formatCurrency(monthIncome)}
+            <p className="text-sm text-muted-foreground uppercase tracking-wide">Income (USD)</p>
+            <p className="text-3xl font-bold text-primary flex items-center justify-center gap-2">
+              <TrendingUp className="h-6 w-6" /> {formatCurrency(monthIncome)}
             </p>
           </div>
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">Expenses</p>
-            <p className="text-2xl font-bold text-destructive flex items-center justify-center gap-2">
-              <TrendingDown /> {formatCurrency(monthExpenses)}
+            <p className="text-sm text-muted-foreground uppercase tracking-wide">Expenses (USD)</p>
+            <p className="text-3xl font-bold text-destructive flex items-center justify-center gap-2">
+              <TrendingDown className="h-6 w-6" /> {formatCurrency(monthExpenses)}
             </p>
           </div>
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">Net Balance</p>
+            <p className="text-sm text-muted-foreground uppercase tracking-wide">Net Balance (USD)</p>
             <p
-              className={`text-2xl font-bold ${
-                monthNet >= 0 ? 'text-primary' : 'text-destructive'
-              }`}
+              className={`text-3xl font-bold ${monthNet >= 0 ? 'text-primary' : 'text-destructive'
+                }`}
             >
               {formatCurrency(monthNet)}
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="flex justify-center">
-            <Calendar
-              mode="single"
-              selected={selectedDay}
-              onSelect={day => setSelectedDay(day || new Date())}
-              month={date}
-              onMonthChange={handleMonthChange}
-              className="rounded-md border"
-              components={{
-                Day: DayWithIndicator,
-              }}
-            />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold mb-4">
-              Transactions for {format(selectedDay, 'MMMM d, yyyy')}
-            </h3>
-            <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
-              {selectedDayTransactions.length > 0 ? (
-                selectedDayTransactions.map(t => (
-                  <div
-                    key={t.id}
-                    className="flex justify-between items-center"
-                  >
-                    <div>
-                      <p className="font-medium">{t.description}</p>
-                      <Badge variant="outline">{t.category}</Badge>
+        <div>
+          <h3 className="text-lg font-semibold mb-4">
+            Transactions in {format(date, 'MMMM yyyy')}
+          </h3>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            {monthTransactions.length > 0 ? (
+              monthTransactions.map(t => (
+                <div
+                  key={t.id}
+                  className="flex justify-between items-center p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-base">{t.description}</p>
+                      <Badge variant="outline" className="text-xs">{t.category}</Badge>
                     </div>
-                    <span
-                      className={`font-mono text-lg ${
-                        t.type === 'income'
-                          ? 'text-primary'
-                          : 'text-destructive'
-                      }`}
-                    >
-                      {formatCurrency(t.amount)}
+                    <span className="text-xs text-muted-foreground">
+                      {format(parseISO(t.date), 'MMM d, yyyy')}
                     </span>
                   </div>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-center py-8">
-                  No transactions for this day.
-                </p>
-              )}
-            </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className={`font-mono font-bold text-lg ${t.type === 'income' ? 'text-primary' : 'text-destructive'
+                        }`}
+                    >
+                      {t.type === 'income' ? '+' : '-'}{formatCurrency(t.realUsdAmount || 0)}
+                    </span>
+                    {t.currency !== 'USD' && (
+                      <span className="text-xs font-mono text-muted-foreground">
+                        Local: {new Intl.NumberFormat('en-US', { style: 'currency', currency: t.currency }).format(t.amount)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border rounded-lg border-dashed">
+                <p>No transactions found for this month.</p>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

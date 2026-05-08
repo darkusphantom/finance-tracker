@@ -158,6 +158,39 @@ export const getScheduledPayments = async (databaseId: string) => {
   }
 };
 
+export const getWishlist = async (databaseId: string) => {
+  try {
+    if (!databaseId) {
+      console.warn('Wishlist Database ID is not defined.');
+      return [];
+    }
+    const response = await notion.databases.query({
+      database_id: databaseId,
+    });
+    return response.results;
+  } catch (error) {
+    console.error(`Error fetching wishlist from Notion DB ${databaseId}:`, error);
+    return [];
+  }
+};
+
+export const getMonthlySavings = async (databaseId: string) => {
+  try {
+    if (!databaseId) {
+      console.warn('Total Savings Database ID is not defined.');
+      return [];
+    }
+    const response = await notion.databases.query({
+      database_id: databaseId,
+      sorts: [{ property: 'Month Number', direction: 'descending' }],
+    });
+    return response.results;
+  } catch (error) {
+    console.error(`Error fetching monthly savings from Notion DB ${databaseId}:`, error);
+    return [];
+  }
+};
+
 
 export const getAllTransactions = async (expenseDbId: string, incomeDbId: string) => {
   if (!expenseDbId && !incomeDbId) {

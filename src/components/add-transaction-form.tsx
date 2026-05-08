@@ -40,21 +40,23 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2, Wallet } from 'lucide-react';
-import { useState, useRef, useMemo } from 'react';
+import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import {
   suggestCategoryAction,
   extractTransactionAction,
   addTransactionAction,
+  getActiveAccountsAction,
 } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-import { CurrencyCalculator } from './currency-calculator';
 import type { ExtractTransactionFromImageOutput } from '@/ai/flows/extract-transaction-from-image';
 import { Label } from './ui/label';
+import { useExchangeRates } from '@/hooks/use-exchange-rates';
+import { CurrencyCalculator } from './currency-calculator';
 
 const expenseCategories = [
   { value: 'Rent/Mortgage', label: '🏠 Rent/Mortgage' },
@@ -80,13 +82,13 @@ const expenseCategories = [
 ];
 
 const incomeCategories = [
-    { value: 'Salary', label: '💼 Salary' },
-    { value: 'Bonus', label: '🏆 Bonus' },
-    { value: 'Freelance', label: '✍️ Freelance' },
-    { value: 'Dividends', label: '📈 Dividends' },
-    { value: 'Interest', label: '💰 Interest' },
-    { value: 'Side Hustle', label: '🚀 Side Hustle' },
-    { value: 'Loan', label: '🏦 Loan' },
+  { value: 'Salary', label: '💼 Salary' },
+  { value: 'Bonus', label: '🏆 Bonus' },
+  { value: 'Freelance', label: '✍️ Freelance' },
+  { value: 'Dividends', label: '📈 Dividends' },
+  { value: 'Interest', label: '💰 Interest' },
+  { value: 'Side Hustle', label: '🚀 Side Hustle' },
+  { value: 'Loan', label: '🏦 Loan' },
 ];
 
 
@@ -96,21 +98,21 @@ const formSchema = z.object({
   }),
   amount: z.coerce.number().positive({ message: 'Amount must be positive.' }),
   type: z.enum(['income', 'expense']),
-  currencyType: z.enum(['USD', 'VES']),
-  accountId: z.string().min(1, { message: 'Please select an account.'}),
   category: z.string().optional(),
-  date: z.string(),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date format",
+  }),
+  currency: z.string().optional(),
+  exchangeRate: z.coerce.number().optional(),
+  accountId: z.string().optional(),
 });
-
 
 type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string, category?: string };
 
 
 export function AddTransactionForm({
-  accounts = [],
   afterSubmit,
 }: {
-  accounts: any[];
   afterSubmit?: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -120,6 +122,7 @@ export function AddTransactionForm({
   const [showContinueDialog, setShowContinueDialog] = useState(false);
   const [scannedTransactions, setScannedTransactions] = useState<ScannedTransaction[]>([]);
   const [scannedDate, setScannedDate] = useState<Date>(new Date());
+  const [activeAccounts, setActiveAccounts] = useState<any[]>([]);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -130,43 +133,69 @@ export function AddTransactionForm({
       description: '',
       amount: 0,
       type: 'expense',
-      currencyType: 'USD',
-      accountId: '',
       category: '',
       date: format(new Date(), 'yyyy-MM-dd'),
+      currency: 'VES',
+      exchangeRate: 0,
+      accountId: undefined,
     },
   });
-  
+
+
+
+  useEffect(() => {
+    getActiveAccountsAction().then(res => setActiveAccounts(res.accounts));
+  }, []);
+
   const transactionType = useWatch({
     control: form.control,
     name: 'type',
   });
 
-  const currencyType = useWatch({
+  const selectedCurrency = useWatch({
     control: form.control,
-    name: 'currencyType',
-  })
-  
+    name: 'currency',
+  });
+
+  const { rates } = useExchangeRates();
+
+  useEffect(() => {
+    if (rates.length > 0) {
+      const currentExchangeRate = form.getValues('exchangeRate');
+      if (!currentExchangeRate) {
+        const officialRate = rates.find((r: any) => r.fuente === 'oficial');
+        if (officialRate) {
+          form.setValue('exchangeRate', officialRate.promedio);
+        }
+      }
+    }
+  }, [rates, form]);
+
+  const filteredAccounts = activeAccounts.filter(account => account.currency === selectedCurrency);
+
   const categories = transactionType === 'income' ? incomeCategories : expenseCategories;
-  
-  const availableAccounts = useMemo(() => {
-    const isUSD = currencyType === 'USD';
-    return accounts.filter(acc => acc.isActive && (
-        isUSD ? (acc.currency === 'USD' || acc.currency === 'USDT') : acc.currency === 'VES'
-    ));
-  }, [accounts, currencyType]);
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    const result = await addTransactionAction(values);
-    
+
+    // Find the selected account's current balance to pass to the action
+    const selectedAccount = activeAccounts.find(a => a.id === values.accountId);
+    const result = await addTransactionAction({
+      ...values,
+      accountBalance: selectedAccount?.balance,
+    });
+
     if (result.success) {
       toast({
         title: 'Transaction Added',
         description: `Your transaction has been added.`,
       });
-      router.refresh(); 
-      setShowContinueDialog(true); 
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      setShowContinueDialog(true);
+      router.refresh();
     } else {
       toast({
         title: 'Submission Failed',
@@ -221,13 +250,13 @@ export function AddTransactionForm({
 
       if (result.data && result.data.length > 0) {
         if (result.data.length === 1) {
-            const { description, amount, type } = result.data[0];
-            form.setValue('description', description, { shouldValidate: true });
-            form.setValue('amount', amount, { shouldValidate: true });
-            form.setValue('type', type, { shouldValidate: true });
-            handleSuggestCategory();
+          const { description, amount, type } = result.data[0];
+          form.setValue('description', description, { shouldValidate: true });
+          form.setValue('amount', amount, { shouldValidate: true });
+          form.setValue('type', type, { shouldValidate: true });
+          handleSuggestCategory();
         } else {
-            setScannedTransactions(result.data.map((item, index) => ({...item, id: `scanned-${index}`})));
+          setScannedTransactions(result.data.map((item, index) => ({ ...item, id: `scanned-${index}` })));
         }
         toast({
           title: 'Scan Successful!',
@@ -257,15 +286,13 @@ export function AddTransactionForm({
     setIsSubmitting(true);
     let successCount = 0;
     const dateString = format(scannedDate, 'yyyy-MM-dd');
-    const defaultAccountId = availableAccounts.length > 0 ? availableAccounts[0].id : '';
 
     for (const trans of scannedTransactions) {
+      const category = trans.category || 'Other';
       const result = await addTransactionAction({
         ...trans,
-        category: trans.category || 'Other',
+        category,
         date: dateString,
-        accountId: defaultAccountId,
-        currencyType: 'USD', // Defaulting scanned to USD, can be improved.
       });
       if (result.success) {
         successCount++;
@@ -274,16 +301,19 @@ export function AddTransactionForm({
     setIsSubmitting(false);
     setScannedTransactions([]);
     toast({
-        title: "Batch Add Complete",
-        description: `${successCount} of ${scannedTransactions.length} transactions were added.`
+      title: "Batch Add Complete",
+      description: `${successCount} of ${scannedTransactions.length} transactions were added.`
     })
-    router.refresh();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setShowContinueDialog(true);
+    router.refresh();
   }
-  
+
   const handleScannedItemChange = (id: string, field: string, value: string | number) => {
-    setScannedTransactions(prev => 
-        prev.map(item => item.id === id ? {...item, [field]: value} : item)
+    setScannedTransactions(prev =>
+      prev.map(item => item.id === id ? { ...item, [field]: value } : item)
     );
   }
 
@@ -295,17 +325,18 @@ export function AddTransactionForm({
   const handleContinueDialogAction = (addAnother: boolean) => {
     setShowContinueDialog(false);
     if (addAnother) {
-        form.reset({
-            description: '',
-            amount: 0,
-            type: 'expense',
-            currencyType: 'USD',
-            accountId: '',
-            category: '',
-            date: format(new Date(), 'yyyy-MM-dd'),
-        });
+      form.reset({
+        description: '',
+        amount: 0,
+        type: 'expense',
+        category: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        currency: 'VES',
+        exchangeRate: undefined,
+        accountId: undefined,
+      });
     } else {
-        afterSubmit?.();
+      afterSubmit?.();
     }
   }
 
@@ -344,10 +375,9 @@ export function AddTransactionForm({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Date</FormLabel>
-                   <Input 
+                  <Input
                     type="date"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
+                    {...field}
                   />
                   <FormMessage />
                 </FormItem>
@@ -370,60 +400,7 @@ export function AddTransactionForm({
                 </FormItem>
               )}
             />
-             <div className="grid grid-cols-2 gap-4">
-               <FormField
-                control={form.control}
-                name="currencyType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Currency</FormLabel>
-                    <Select onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('accountId', '');
-                    }} defaultValue={field.value} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select currency type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="VES">VES</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-                <FormField
-                    control={form.control}
-                    name="accountId"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Account</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={availableAccounts.length === 0}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder={availableAccounts.length === 0 ? `No ${currencyType} accounts` : "Select an account"} />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {availableAccounts.map(account => (
-                                <SelectItem key={account.id} value={account.id}>
-                                <div className="flex items-center gap-2">
-                                    <Wallet className="w-4 h-4 text-muted-foreground" />
-                                    <span>{account.name} ({account.currency})</span>
-                                </div>
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-            </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -452,8 +429,8 @@ export function AddTransactionForm({
                     <FormLabel>Type</FormLabel>
                     <Select
                       onValueChange={(value) => {
-                          field.onChange(value)
-                          form.setValue('category', '')
+                        field.onChange(value)
+                        form.setValue('category', '')
                       }}
                       defaultValue={field.value}
                       value={field.value}
@@ -497,50 +474,154 @@ export function AddTransactionForm({
                     </Button>
                   </div>
                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categories.map(category => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        // Reset account selection when currency changes
+                        form.setValue('accountId', undefined);
+                        if (value === 'VES') {
+                          const officialRate = rates.find((r: any) => r.fuente === 'oficial');
+                          if (officialRate) {
+                            form.setValue('exchangeRate', officialRate.promedio);
+                          }
+                        } else {
+                          form.setValue('exchangeRate', 0);
+                        }
+                      }}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
+                          <SelectValue placeholder="Select currency" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories.map(category => (
-                          <SelectItem key={category.value} value={category.value}>
-                            {category.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="VES">🇻🇪 VES</SelectItem>
+                        <SelectItem value="USD">🇺🇸 USD</SelectItem>
+                        <SelectItem value="USDT">USDT</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="exchangeRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Exchange Rate</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g. 300"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Account selector — filtered by selected currency */}
+            <FormField
+              control={form.control}
+              name="accountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Account
+                    {filteredAccounts.length === 0 && selectedCurrency && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (no active {selectedCurrency} accounts)
+                      </span>
+                    )}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value ?? ''}
+                    disabled={filteredAccounts.length === 0}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account (optional)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {filteredAccounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <span className="font-medium">{account.name}</span>
+                          <span className="ml-2 text-muted-foreground font-mono text-xs">
+                            {new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: account.currency === 'USDT' ? 'USD' : account.currency,
+                            }).format(account.balance)}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
           <div className="space-y-4">
-              <Button
+            <Button
               type="submit"
               className="w-full"
               disabled={isSubmitting || isScanning}
-              >
+            >
               {(isSubmitting || isScanning) && (
-                  <Loader2 className="animate-spin mr-2" />
+                <Loader2 className="animate-spin mr-2" />
               )}
               Add Transaction
-              </Button>
-              <Collapsible open={showCalculator} onOpenChange={setShowCalculator}>
-                  <CollapsibleTrigger asChild>
-                      <Button type="button" variant="outline" className="w-full">
-                          <CalculatorIcon />
-                          Show Calculator
-                      </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-4">
-                    <CurrencyCalculator showTitle={false} />
-                  </CollapsibleContent>
-              </Collapsible>
+            </Button>
+            <Collapsible open={showCalculator} onOpenChange={setShowCalculator}>
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="outline" className="w-full">
+                  <CalculatorIcon />
+                  Mostrar Calculadora
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <CurrencyCalculator showTitle={false} />
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </form>
       </Form>
-      
+
       <AlertDialog open={showContinueDialog} onOpenChange={setShowContinueDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -558,110 +639,111 @@ export function AddTransactionForm({
 
       <Dialog open={scannedTransactions.length > 0} onOpenChange={() => setScannedTransactions([])}>
         <DialogContent className="max-w-4xl">
-            <DialogHeader>
-                <DialogTitle>Scanned Transactions</DialogTitle>
-                <DialogDescription>
-                    Review, edit, and categorize the transactions found in your receipt. Click "Add All" to save them.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-6">
-                 <div className="flex flex-col gap-2">
-                  <Label>Transaction Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-[280px] justify-start text-left font-normal',
-                            !scannedDate && 'text-muted-foreground'
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {scannedDate ? format(scannedDate, 'PPP') : <span>Pick a date</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={scannedDate}
-                        onSelect={(date) => setScannedDate(date || new Date())}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className='w-2/6'>Description</TableHead>
-                            <TableHead className='w-1/6'>Type</TableHead>
-                            <TableHead className='w-2/6'>Category</TableHead>
-                            <TableHead className="w-1/6 text-right">Amount</TableHead>
-                             <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {scannedTransactions.map((trans) => {
-                            const cats = trans.type === 'income' ? incomeCategories : expenseCategories;
-                            return (
-                            <TableRow key={trans.id}>
-                                <TableCell>
-                                    <Input value={trans.description} onChange={(e) => handleScannedItemChange(trans.id, 'description', e.target.value)} className="h-8"/>
-                                </TableCell>
-                                <TableCell>
-                                     <Select value={trans.type} onValueChange={(value) => handleScannedItemChange(trans.id, 'type', value)}>
-                                        <SelectTrigger className="h-8">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="expense">Expense</SelectItem>
-                                            <SelectItem value="income">Income</SelectItem>
-                                        </SelectContent>
-                                     </Select>
-                                </TableCell>
-                                 <TableCell>
-                                    <Select value={trans.category} onValueChange={(value) => handleScannedItemChange(trans.id, 'category', value)}>
-                                        <SelectTrigger className="h-8">
-                                            <SelectValue placeholder="Select Category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {cats.map(c => (
-                                                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                     </Select>
-                                </TableCell>
-                                <TableCell>
-                                    <Input type="number" value={trans.amount} onChange={(e) => handleScannedItemChange(trans.id, 'amount', parseFloat(e.target.value) || 0)} className="h-8 text-right"/>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteScannedItem(trans.id)}>
-                                        <Trash2 className="w-4 h-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        )})}
-                    </TableBody>
-                </Table>
-                 <Collapsible>
-                  <CollapsibleTrigger asChild>
-                      <Button type="button" variant="outline" className="w-full mt-4">
-                          <CalculatorIcon />
-                          Show Calculator
-                      </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-4">
-                    <CurrencyCalculator showTitle={false} />
-                  </CollapsibleContent>
-              </Collapsible>
+          <DialogHeader>
+            <DialogTitle>Scanned Transactions</DialogTitle>
+            <DialogDescription>
+              Review, edit, and categorize the transactions found in your receipt. Click "Add All" to save them.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-6">
+            <div className="flex flex-col gap-2">
+              <Label>Transaction Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={'outline'}
+                    className={cn(
+                      'w-[280px] justify-start text-left font-normal',
+                      !scannedDate && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {scannedDate ? format(scannedDate, 'PPP') : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={scannedDate}
+                    onSelect={(date) => setScannedDate(date || new Date())}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setScannedTransactions([])}>Cancel</Button>
-                <Button onClick={handleAddScannedTransactions} disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="animate-spin mr-2" />}
-                    Add All
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className='w-2/6'>Description</TableHead>
+                  <TableHead className='w-1/6'>Type</TableHead>
+                  <TableHead className='w-2/6'>Category</TableHead>
+                  <TableHead className="w-1/6 text-right">Amount</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {scannedTransactions.map((trans) => {
+                  const cats = trans.type === 'income' ? incomeCategories : expenseCategories;
+                  return (
+                    <TableRow key={trans.id}>
+                      <TableCell>
+                        <Input value={trans.description} onChange={(e) => handleScannedItemChange(trans.id, 'description', e.target.value)} className="h-8" />
+                      </TableCell>
+                      <TableCell>
+                        <Select value={trans.type} onValueChange={(value) => handleScannedItemChange(trans.id, 'type', value)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="expense">Expense</SelectItem>
+                            <SelectItem value="income">Income</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={trans.category} onValueChange={(value) => handleScannedItemChange(trans.id, 'category', value)}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Select Category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {cats.map(c => (
+                              <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" value={trans.amount} onChange={(e) => handleScannedItemChange(trans.id, 'amount', parseFloat(e.target.value) || 0)} className="h-8 text-right" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteScannedItem(trans.id)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="outline" className="w-full mt-4">
+                  <CalculatorIcon />
+                  Show Calculator
                 </Button>
-            </DialogFooter>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <CurrencyCalculator showTitle={false} />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScannedTransactions([])}>Cancel</Button>
+            <Button onClick={handleAddScannedTransactions} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="animate-spin mr-2" />}
+              Add All
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

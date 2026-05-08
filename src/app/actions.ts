@@ -22,14 +22,13 @@ import {
   findOrCreateMonthPage,
   findUserByUsernameOrEmail,
   createUser,
-  getPage,
+  getAccounts,
 } from '@/lib/notion';
-import { getProperty } from '@/lib/utils';
+import { transformAccountData } from '@/lib/utils';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
-import { redirect } from 'next/navigation';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -57,7 +56,7 @@ export async function loginAction(values: unknown) {
       return { error: 'Invalid credentials.' };
     }
 
-    cookies().set('auth-token', user.id, {
+    (await cookies()).set('auth-token', user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 24 * 7, // One week
@@ -97,20 +96,18 @@ export async function registerAction(values: unknown) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     await createUser({ email, username, password: hashedPassword });
-
   } catch (error: any) {
     return {
       error:
         error.message || 'An unexpected error occurred during registration.',
     };
   }
-
   return { success: true };
 }
 
 export async function logoutAction() {
-    cookies().delete('auth-token');
-    redirect('/login');
+  (await cookies()).delete('auth-token');
+  return { success: true };
 }
 
 
@@ -161,36 +158,26 @@ const addTransactionSchema = z.object({
   description: z.string().min(2),
   amount: z.coerce.number(),
   type: z.enum(['income', 'expense']),
-  currencyType: z.enum(['USD', 'VES']),
-  accountId: z.string().min(1, "Account is required"),
   category: z.string().optional(),
-  date: z.string(),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date format",
+  }),
+  currency: z.string().optional(),
+  exchangeRate: z.coerce.number().optional(),
+  // Account to update after the transaction is recorded
+  accountId: z.string().optional(),
+  accountBalance: z.coerce.number().optional(),
 });
 
-
-export async function addTransactionAction(values: z.infer<typeof addTransactionSchema>) {
+export async function addTransactionAction(values: unknown) {
   const parsed = addTransactionSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
   }
 
   try {
-    const { description, amount, category, date, type, accountId, currencyType } = parsed.data;
+    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance } = parsed.data;
 
-    // First, validate the account
-    const accountPage = await getPage(accountId);
-    if (!accountPage) {
-        throw new Error("Selected account not found.");
-    }
-    const accountCurrency = getProperty((accountPage as any).properties.Currency);
-    const isUSDAccount = accountCurrency === 'USD' || accountCurrency === 'USDT';
-    const isVESAccount = accountCurrency === 'VES';
-
-    if ((currencyType === 'USD' && !isUSDAccount) || (currencyType === 'VES' && !isVESAccount)) {
-        throw new Error(`Transaction currency (${currencyType}) does not match account currency (${accountCurrency}).`);
-    }
-
-    // Add transaction
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
       process.env.NOTION_TOTAL_SAVINGS_DB!,
@@ -198,32 +185,56 @@ export async function addTransactionAction(values: z.infer<typeof addTransaction
     );
 
     const transactionAmount = Math.abs(amount);
+
     const databaseId =
       type === 'income'
         ? process.env.NOTION_INCOME_DB!
         : process.env.NOTION_TRANSACTIONS_DB!;
-    
-    await addPageToDb(databaseId, {
+
+    const notionProperties: Record<string, any> = {
       Source: { title: [{ text: { content: description } }] },
       Amount: { number: transactionAmount },
       Tags: { select: { name: category || 'Other' } },
       Date: { date: { start: date } },
       Month: { relation: [{ id: monthPageId }] },
-    });
+    };
 
-    // Update account balance
-    const currentBalance = getProperty((accountPage as any).properties['Balance Amount']) || 0;
-    const newBalance = type === 'income' ? currentBalance + transactionAmount : currentBalance - transactionAmount;
+    if (currency) {
+      notionProperties['Currency'] = { select: { name: currency } };
+    }
+    if (exchangeRate !== undefined && exchangeRate !== null) {
+      notionProperties['Exchange Rate Used'] = { number: exchangeRate };
+    }
 
-    await updatePage(accountId, {
-    'Balance Amount': { number: newBalance },
-    'Last Transaction Date': { date: { start: new Date().toISOString() } },
-    });
+    await addPageToDb(databaseId, notionProperties);
+
+    // Update account balance if an account was selected
+    if (accountId && accountBalance !== undefined) {
+      const newBalance =
+        type === 'income'
+          ? accountBalance + transactionAmount
+          : accountBalance - transactionAmount;
+      await updatePage(accountId, {
+        'Balance Amount': { number: newBalance },
+        'Last Transaction Date': { date: { start: date } },
+      });
+    }
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to add transaction to Notion:', error);
-    return { error: error.message || 'Failed to save transaction.' };
+    return { error: 'Failed to save transaction.' };
+  }
+}
+
+export async function getActiveAccountsAction() {
+  try {
+    const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
+    const accounts = transformAccountData(rawAccounts);
+    return { accounts: accounts.filter((a: any) => a.isActive) };
+  } catch (error) {
+    console.error('Failed to fetch active accounts:', error);
+    return { accounts: [] };
   }
 }
 
@@ -256,6 +267,12 @@ export async function updateTransactionAction(values: unknown) {
       case 'date':
         notionProperty = { Date: { date: { start: value } } };
         break;
+      case 'currency':
+        notionProperty = { Currency: { select: { name: value } } };
+        break;
+      case 'exchangeRate':
+        notionProperty = { 'Exchange Rate Used': { number: parseFloat(value) || 0 } };
+        break;
       default:
         return { error: 'Invalid field.' };
     }
@@ -285,9 +302,6 @@ export async function addAccountAction() {
       'Account Type': { select: { name: 'Corriente' } },
       'Balance Amount': { number: 0 },
       'Is Active': { checkbox: true },
-      Currency: { select: { name: 'USD' } },
-      'Account Number': { rich_text: [{ text: { content: '' } }] },
-      'Last Transaction Date': { date: null },
     };
     const newPage = await addPageToDb(
       process.env.NOTION_ACCOUNTS_DB!,
@@ -319,23 +333,20 @@ export async function updateAccountAction(values: unknown) {
       case 'name':
         notionProperty = { Name: { title: [{ text: { content: value } }] } };
         break;
-      case 'balance':
-        notionProperty = { 'Balance Amount': { number: parseFloat(value) || 0 } };
-        break;
       case 'type':
         notionProperty = { 'Account Type': { select: { name: value } } };
-        break;
-      case 'isActive':
-        notionProperty = { 'Is Active': { checkbox: value } };
         break;
       case 'currency':
         notionProperty = { Currency: { select: { name: value } } };
         break;
+      case 'balance':
+        notionProperty = { 'Balance Amount': { number: parseFloat(value) || 0 } };
+        break;
+      case 'isActive':
+        notionProperty = { 'Is Active': { checkbox: value } };
+        break;
       case 'accountNumber':
         notionProperty = { 'Account Number': { rich_text: [{ text: { content: value } }] } };
-        break;
-      case 'lastTransactionDate':
-        notionProperty = { 'Last Transaction Date': { date: value ? { start: value } : null } };
         break;
       default:
         return { error: 'Invalid field.' };
@@ -348,6 +359,15 @@ export async function updateAccountAction(values: unknown) {
   }
 }
 
+export async function deleteAccountAction(id: string) {
+  try {
+    await deletePage(id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to delete account in Notion:', error);
+    return { error: 'Failed to delete account.' };
+  }
+}
 
 export async function addDebtAction() {
   try {
@@ -355,10 +375,8 @@ export async function addDebtAction() {
       Title: { title: [{ text: { content: 'New Debt' } }] },
       Type: { select: { name: 'Deuda' } },
       'Debt Amount': { number: 0 },
-      Status: { select: { name: 'Pendiente' } },
       'Amount Paid': { number: 0 },
-      Reason: { rich_text: [{ text: { content: '' } }] },
-      Date: { date: { start: new Date().toISOString().split('T')[0] } },
+      Status: { select: { name: 'Pendiente' } },
     };
     const newPage = await addPageToDb(
       process.env.NOTION_DEBTS_DB!,
@@ -396,11 +414,6 @@ export async function updateDebtAction(values: unknown) {
       case 'paid':
         notionProperty = { 'Amount Paid': { number: parseFloat(value) || 0 } };
         break;
-      case 'type':
-        notionProperty = {
-          Type: { select: { name: value === 'Debt' ? 'Deuda' : 'Deudor' } },
-        };
-        break;
       case 'status':
         notionProperty = { Status: { select: { name: value } } };
         break;
@@ -408,7 +421,12 @@ export async function updateDebtAction(values: unknown) {
         notionProperty = { Reason: { rich_text: [{ text: { content: value } }] } };
         break;
       case 'date':
-        notionProperty = { Date: { date: { start: value } } };
+        notionProperty = { Date: { date: value ? { start: value } : null } };
+        break;
+      case 'type':
+        notionProperty = {
+          Type: { select: { name: value === 'Debt' ? 'Deuda' : 'Deudor' } },
+        };
         break;
       default:
         return { error: 'Invalid field.' };
@@ -421,13 +439,13 @@ export async function updateDebtAction(values: unknown) {
   }
 }
 
-
 const scheduledPaymentSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   day: z.coerce.number().min(1).max(31),
   amount: z.coerce.number(),
   type: z.enum(['fixed', 'variable']),
   category: z.enum(['income', 'expense']),
+  isActive: z.boolean().optional().default(true),
 });
 
 export async function addScheduledPaymentAction(
@@ -439,13 +457,14 @@ export async function addScheduledPaymentAction(
   }
 
   try {
-    const { name, day, amount, type, category } = parsed.data;
+    const { name, day, amount, type, category, isActive } = parsed.data;
     const notionProperties = {
       Name: { title: [{ text: { content: name } }] },
       'Month Day': { number: day },
       'Budget Amount': { number: amount },
       Type: { select: { name: type === 'fixed' ? 'Fijo' : 'Variable' } },
       Category: { select: { name: category === 'income' ? 'Ingreso' : 'Pago' } },
+      IsActive: { checkbox: isActive },
     };
     const newPage = await addPageToDb(
       process.env.NOTION_BUDGET_DB!,
@@ -487,6 +506,9 @@ export async function updateScheduledPaymentAction(values: unknown) {
         notionProperty = {
           Type: { select: { name: value === 'fixed' ? 'Fijo' : 'Variable' } },
         };
+        break;
+      case 'isActive':
+        notionProperty = { IsActive: { checkbox: value === true || value === 'true' } };
         break;
       default:
         return { error: 'Invalid field.' };
@@ -553,5 +575,76 @@ export async function getRiskProfileAnalysisAction(
   } catch (error) {
     console.error('AI risk profile analysis failed:', error);
     return { error: 'Failed to generate risk profile analysis.' };
+  }
+}
+
+const updateWishlistItemSchema = z.object({
+  id: z.string(),
+  field: z.string(),
+  value: z.any(),
+});
+
+export async function updateWishlistItemAction(values: unknown) {
+  const parsed = updateWishlistItemSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
+
+  try {
+    const { id, field, value } = parsed.data;
+    let notionProperty;
+    switch (field) {
+      case 'name':
+        notionProperty = { Name: { title: [{ text: { content: value } }] } };
+        break;
+      case 'price':
+        notionProperty = { Price: { number: parseFloat(value) || 0 } };
+        break;
+      case 'priorityLevel':
+        notionProperty = { 'Priority Level': { select: { name: value } } };
+        break;
+      case 'storeLocation':
+        notionProperty = { 'Store Location': { rich_text: [{ text: { content: value } }] } };
+        break;
+      case 'itemCategory':
+        notionProperty = { 'Item Category': { select: { name: value } } };
+        break;
+      case 'purchaseDate':
+        notionProperty = { 'Purchase Date': { date: value ? { start: value } : null } };
+        break;
+      case 'isPurchased':
+        notionProperty = { 'Is Purchased': { checkbox: value === true || value === 'true' } };
+        break;
+      case 'supplierContact':
+        notionProperty = { 'Supplier Contact': { rich_text: [{ text: { content: value } }] } };
+        break;
+      case 'discard':
+        notionProperty = { Discard: { checkbox: value === true || value === 'true' } };
+        break;
+      case 'itemImage':
+        notionProperty = {
+          'Item Image': {
+            files: value
+              ? [
+                {
+                  name: 'Wishlist Image',
+                  type: 'external',
+                  external: {
+                    url: value,
+                  },
+                },
+              ]
+              : [],
+          },
+        };
+        break;
+      default:
+        return { error: 'Invalid field.' };
+    }
+    await updatePage(id, notionProperty);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to update wishlist item in Notion:', error);
+    return { error: 'Failed to update wishlist item.' };
   }
 }

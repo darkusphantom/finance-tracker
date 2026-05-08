@@ -1,14 +1,52 @@
+# Docker Compose para la aplicación de finanzas con Notion
+# Este archivo define cómo ejecutar la aplicación Next.js en un contenedor
+
 services:
+  # Servicio principal de la aplicación Next.js
   next-app:
+    # Construir la imagen usando el Dockerfile del directorio actual
     build:
       context: .
       dockerfile: Dockerfile
+    
+    # Nombre del contenedor para fácil identificación
     container_name: notion-finance-app
+    
+    # Reiniciar automáticamente el contenedor si falla
     restart: unless-stopped
+    
+    # Configuración de red para Nginx Proxy Manager
+    networks:
+      - default
+    
+    # Mapear el puerto 3000 del contenedor al puerto 8080 del host
+    # Esto permite acceso directo y también funciona con proxy reverso
     ports:
-      - "3000:3000"
-    # Load environment variables from a .env file in the same directory
+      - "8080:3000"
+    
+    # Cargar variables de entorno desde el archivo .env
+    # Asegúrate de tener este archivo en el directorio raíz del proyecto
     env_file:
       - .env
-    # Override the CMD from the Dockerfile to run on port 3000
-    command: node server.js -p 3000
+    
+    # Variables de entorno para configuración correcta con proxy
+    environment:
+      # Configurar Next.js para aceptar conexiones desde cualquier IP
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+      # URL base de la aplicación (ajusta según tu dominio)
+      - NEXT_PUBLIC_APP_URL=http://100.86.108.115:8080
+      # Configuración para proxy reverso
+      - NEXTAUTH_URL=http://100.86.108.115:8080
+    
+    # Etiquetas para Nginx Proxy Manager (opcional)
+    labels:
+      - "com.docker.compose.service=next-app"
+      - "traefik.enable=true"
+      - "traefik.http.routers.next-app.rule=Host(`100.86.108.115`)"
+      - "traefik.http.services.next-app.loadbalancer.server.port=3000"
+
+# Configuración de red por defecto
+networks:
+  default:
+    driver: bridge

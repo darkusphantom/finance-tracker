@@ -12,7 +12,7 @@ export default async function DebtsPage() {
   return (
     <DashboardLayout title="Debts">
       <main>
-        <Debts initialDebts={debts}/>
+        <Debts initialDebts={debts} />
       </main>
     </DashboardLayout>
   );

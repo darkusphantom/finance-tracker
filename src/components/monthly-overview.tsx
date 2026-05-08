@@ -5,96 +5,166 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import { TrendingUp, TrendingDown } from 'lucide-react';
-import { Separator } from './ui/separator';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
-export function MonthlyOverview() {
-  const income = 5320.5;
-  const expenses = 2780.25;
-  const net = income - expenses;
+type MonthData = {
+  id: string;
+  name: string;
+  monthNumber: number;
+  totalIncome: number;
+  totalExpenses: number;
+  net: number;
+};
+
+function StatCard({
+  label,
+  value,
+  variant,
+}: {
+  label: string;
+  value: number;
+  variant: 'income' | 'expense' | 'net';
+}) {
+  const colorClass =
+    variant === 'income'
+      ? 'text-primary'
+      : variant === 'expense'
+        ? 'text-destructive'
+        : value >= 0
+          ? 'text-primary'
+          : 'text-destructive';
+
+  const Icon =
+    variant === 'income'
+      ? TrendingUp
+      : variant === 'expense'
+        ? TrendingDown
+        : Minus;
+
+  const prefix = variant === 'income' ? '+' : variant === 'expense' ? '-' : value >= 0 ? '+' : '';
+
+  return (
+    <div className="flex flex-col gap-1 text-center">
+      <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className={`text-xl font-bold flex items-center justify-center gap-1.5 ${colorClass}`}>
+        <Icon className="h-4 w-4" />
+        {prefix}${Math.abs(value).toFixed(2)}
+      </p>
+    </div>
+  );
+}
+
+export function MonthlyOverview({
+  monthlySavings = [],
+}: {
+  monthlySavings?: MonthData[];
+}) {
+  // ── Filter: current year only, up to the current month ──────────────────
+  const now = new Date();
+  const currentYear = now.getFullYear();   // e.g. 2026
+  const currentMonth = now.getMonth() + 1; // 1-12, e.g. 5 for May
+
+  const filtered = monthlySavings.filter(month => {
+    // Extract the 4-digit year from the name field ("May 2026" → 2026)
+    const yearMatch = month.name.match(/\d{4}/);
+    const year = yearMatch ? parseInt(yearMatch[0], 10) : 0;
+    return year === currentYear && month.monthNumber <= currentMonth;
+  });
+
+  if (filtered.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Monthly Overview</CardTitle>
+          <CardDescription>No monthly data available yet.</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  // ── Annual totals: sum of all filtered months ────────────────────────────
+  const annualIncome   = filtered.reduce((s, m) => s + m.totalIncome, 0);
+  const annualExpenses = filtered.reduce((s, m) => s + m.totalExpenses, 0);
+  const annualNet      = filtered.reduce((s, m) => s + m.net, 0);
+
+  // Most recent month is first (sorted descending by Month Number)
+  const current  = filtered[0];
+  const previous = filtered[1] ?? null;
+
+  const netTrend = previous !== null ? current.net - previous.net : null;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Monthly Overview</CardTitle>
-        <CardDescription>
-          A summary of your income and expenses for this month.
-        </CardDescription>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle>Monthly Overview</CardTitle>
+            <CardDescription>
+              Real USD totals for <span className="font-medium text-foreground">{currentYear}</span>
+            </CardDescription>
+          </div>
+          {netTrend !== null && (
+            <Badge variant={netTrend >= 0 ? 'default' : 'destructive'} className="text-xs">
+              {netTrend >= 0 ? '▲' : '▼'} {netTrend >= 0 ? '+' : ''}
+              ${netTrend.toFixed(2)} vs {previous!.name}
+            </Badge>
+          )}
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-6">
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">Income</p>
-            <p className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
-              <TrendingUp /> ${income.toFixed(2)}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">Expenses</p>
-            <p className="text-2xl font-bold text-destructive flex items-center justify-center gap-2">
-              <TrendingDown /> ${expenses.toFixed(2)}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">Net Balance</p>
-            <p
-              className={`text-2xl font-bold flex items-center justify-center gap-2 ${
-                net >= 0 ? 'text-primary' : 'text-destructive'
-              }`}
-            >
-              ${net.toFixed(2)}
-            </p>
+      <CardContent className="space-y-6">
+
+        {/* ── Annual totals ──────────────────────────────── */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            Annual Summary ({currentYear})
+          </p>
+          <div className="grid grid-cols-3 gap-4 rounded-lg border bg-muted/30 p-4">
+            <StatCard label="Income" value={annualIncome}   variant="income"  />
+            <StatCard label="Expenses" value={annualExpenses} variant="expense" />
+            <StatCard label="Net"    value={annualNet}     variant="net"     />
           </div>
         </div>
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="item-1">
-            <AccordionTrigger>View Detailed Breakdown</AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4 pt-4">
-                <div>
-                  <h4 className="font-semibold mb-2">Top Income Sources</h4>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Salary</span>
-                    <span className="font-mono text-primary">
-                      +${'5,000.00'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Freelance Project</span>
-                    <span className="font-mono text-primary">+${'320.50'}</span>
-                  </div>
-                </div>
-                <Separator />
-                <div>
-                  <h4 className="font-semibold mb-2">Top Expense Categories</h4>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Rent</span>
-                    <span className="font-mono text-destructive">
-                      -${'1,800.00'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Groceries</span>
-                    <span className="font-mono text-destructive">
-                      -${'450.75'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Utilities</span>
-                    <span className="font-mono text-destructive">
-                      -${'150.00'}
-                    </span>
-                  </div>
-                </div>
+
+        {/* ── Current month ──────────────────────────────── */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            {current.name}
+          </p>
+          <div className="grid grid-cols-3 gap-4 rounded-lg border p-4">
+            <StatCard label="Income"   value={current.totalIncome}   variant="income"  />
+            <StatCard label="Expenses" value={current.totalExpenses} variant="expense" />
+            <StatCard label="Net"      value={current.net}           variant="net"     />
+          </div>
+        </div>
+
+        {/* ── Historical rows ────────────────────────────── */}
+        {filtered.length > 1 && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Previous Months
+            </p>
+            {filtered.slice(1).map(month => (
+              <div
+                key={month.id}
+                className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+              >
+                <span className="font-medium w-28 shrink-0">{month.name}</span>
+                <span className="text-primary font-mono">
+                  +${month.totalIncome.toFixed(2)}
+                </span>
+                <span className="text-destructive font-mono">
+                  -${month.totalExpenses.toFixed(2)}
+                </span>
+                <span
+                  className={`font-mono font-semibold ${month.net >= 0 ? 'text-primary' : 'text-destructive'}`}
+                >
+                  {month.net >= 0 ? '+' : ''}${month.net.toFixed(2)}
+                </span>
               </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

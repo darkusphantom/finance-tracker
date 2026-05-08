@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -46,7 +47,7 @@ const ALLOWED_FILE_TYPES = [
 ];
 
 export function FinancialChatbot() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages, clearMessages] = useLocalStorage<Message[]>('chatHistory', []);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -55,21 +56,6 @@ export function FinancialChatbot() {
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedMessages = localStorage.getItem('chatHistory');
-      if (storedMessages) {
-        setMessages(JSON.parse(storedMessages));
-      }
-    } catch (error) {
-        console.error("Failed to parse chat history from localStorage", error);
-        localStorage.removeItem('chatHistory');
-    }
-  }, []);
-
-  useEffect(() => {
-    if(messages.length > 0) {
-        localStorage.setItem('chatHistory', JSON.stringify(messages));
-    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
@@ -162,9 +148,8 @@ export function FinancialChatbot() {
             index++;
             if (index >= responseText.length) {
                 clearInterval(intervalId);
-                // Final update to ensure local storage is correct
-                const finalMessages = [...newMessages.slice(0, -1), { role: 'bot', content: responseText }];
-                localStorage.setItem('chatHistory', JSON.stringify(finalMessages));
+                // Force a final state sync so useLocalStorage persists the complete message
+                setMessages([...newMessages.slice(0, -1), { role: 'bot', content: responseText }] as Message[]);
             }
         }, 13); // Adjust typing speed here
     } else {

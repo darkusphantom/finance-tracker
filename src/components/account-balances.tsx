@@ -15,11 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Landmark, Trash2, Wallet, ArrowUpDown, PlusCircle, Loader2 } from 'lucide-react';
+import { Landmark, Trash2, Pencil, Wallet, ArrowUpDown, PlusCircle, Loader2 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Label } from './ui/label';
 import {
   Select,
   SelectContent,
@@ -38,8 +39,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Checkbox } from './ui/checkbox';
-import { addAccountAction, updateAccountAction, deleteTransactionAction } from '@/app/actions';
+import { addAccountAction, updateAccountAction, deleteAccountAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Separator } from './ui/separator';
@@ -47,18 +56,179 @@ import { Separator } from './ui/separator';
 const accountTypes = ['Corriente', 'Ahorro', 'Fisico', 'Credit', 'Investment'];
 const currencies = ['USD', 'VES', 'USDT'];
 
-type ExchangeRate = {
-  promedio: number;
-};
+import { useExchangeRates } from '@/hooks/use-exchange-rates';
 
 const formatCurrency = (value: number, currency: string) => {
-    const displayCurrency = currency === 'USDT' ? 'USD' : currency;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: displayCurrency,
-    }).format(value);
+  const displayCurrency = currency === 'USDT' ? 'USD' : currency;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: displayCurrency,
+  }).format(value);
 };
 
+function EditAccountModal({
+  account,
+  open,
+  onOpenChange,
+  onSave,
+}: {
+  account: any;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (updatedAccount: any) => void;
+}) {
+  const [form, setForm] = useState(account);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (open) {
+      setForm(account);
+    }
+  }, [account, open]);
+
+  const handleField = (field: string, value: any) => {
+    setForm((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    const fieldsToUpdate: Array<{ field: string; value: any }> = [];
+
+    const tracked = ['name', 'type', 'currency', 'balance', 'isActive', 'accountNumber'];
+    for (const field of tracked) {
+      if (form[field] !== account[field]) {
+        fieldsToUpdate.push({ field, value: form[field] });
+      }
+    }
+
+    let hasError = false;
+    for (const { field, value } of fieldsToUpdate) {
+      const result = await updateAccountAction({
+        id: account.id,
+        field,
+        value,
+      });
+      if (result?.error) {
+        toast({
+          title: 'Update Failed',
+          description: result.error,
+          variant: 'destructive',
+        });
+        hasError = true;
+        break;
+      }
+    }
+
+    if (!hasError) {
+      toast({ title: 'Account Updated', description: 'Changes have been saved.' });
+      onSave(form);
+      onOpenChange(false);
+      router.refresh();
+    }
+    setIsSaving(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Account</DialogTitle>
+          <DialogDescription>Make changes to the account here.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="isActive"
+              checked={!form.isActive}
+              onCheckedChange={(checked) => handleField('isActive', !checked)}
+            />
+            <Label htmlFor="isActive">Paused</Label>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="name">Account Name</Label>
+            <Input
+              id="name"
+              value={form.name || ''}
+              onChange={e => handleField('name', e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="accountNumber">Account Number (Optional)</Label>
+            <Input
+              id="accountNumber"
+              value={form.accountNumber || ''}
+              onChange={e => handleField('accountNumber', e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>Type</Label>
+            <Select
+              value={form.type || ''}
+              onValueChange={value => handleField('type', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {accountTypes.map(c => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>Currency</Label>
+            <Select
+              value={form.currency || ''}
+              onValueChange={value => handleField('currency', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select currency" />
+              </SelectTrigger>
+              <SelectContent>
+                {currencies.map(c => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="balance">Balance</Label>
+            <Input
+              id="balance"
+              type="number"
+              step="0.01"
+              value={form.balance}
+              onChange={e => handleField('balance', parseFloat(e.target.value) || 0)}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function AccountBalances({
   isEditable = true,
@@ -72,9 +242,14 @@ export function AccountBalances({
   const [sort, setSort] = useState({ key: 'name', order: 'asc' });
   const [page, setPage] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
-  const [isSaving, setIsSaving] = useState<string | null>(null);
-  const [officialRate, setOfficialRate] = useState<number | null>(null);
-  const [rateLoading, setRateLoading] = useState(true);
+  const [showPaused, setShowPaused] = useState(false);
+  const [currencyFilter, setCurrencyFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const { rates, loading: rateLoading } = useExchangeRates();
+  const officialRate = useMemo(() => {
+    const rate = rates.find(r => r.fuente === 'oficial');
+    return rate ? rate.promedio : null;
+  }, [rates]);
 
   const itemsPerPage = isEditable ? 15 : 10;
   const { toast } = useToast();
@@ -84,50 +259,26 @@ export function AccountBalances({
     setAccounts([...initialAccounts]);
   }, [initialAccounts]);
 
-  useEffect(() => {
-    const fetchRate = async () => {
-      try {
-        setRateLoading(true);
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-        if (!response.ok) {
-          throw new Error('Failed to fetch exchange rate.');
-        }
-        const data: ExchangeRate = await response.json();
-        setOfficialRate(data.promedio);
-      } catch (err) {
-        console.error(err);
-        toast({
-            title: 'Error fetching rate',
-            description: 'Could not fetch the official exchange rate.',
-            variant: 'destructive',
-        });
-      } finally {
-        setRateLoading(false);
-      }
-    };
-    fetchRate();
-  }, [toast]);
-
 
   const { totalBalanceUSD, totalBalanceVES } = useMemo(() => {
     if (!officialRate) return { totalBalanceUSD: 0, totalBalanceVES: 0 };
-    
+
     const totalUSD = accounts.reduce((acc, account) => {
-        if (!account.isActive) return acc;
-        switch (account.currency) {
-            case 'USD':
-            case 'USDT':
-                return acc + account.balance;
-            case 'VES':
-                return acc + (account.balance / officialRate);
-            default:
-                return acc;
-        }
+      if (!account.isActive) return acc;
+      switch (account.currency) {
+        case 'USD':
+        case 'USDT':
+          return acc + account.balance;
+        case 'VES':
+          return acc + (account.balance / officialRate);
+        default:
+          return acc;
+      }
     }, 0);
 
     return {
-        totalBalanceUSD: totalUSD,
-        totalBalanceVES: totalUSD * officialRate,
+      totalBalanceUSD: totalUSD,
+      totalBalanceVES: totalUSD * officialRate,
     }
 
   }, [accounts, officialRate]);
@@ -143,19 +294,31 @@ export function AccountBalances({
   const sortedAndFilteredAccounts = useMemo(() => {
     let filtered = accounts;
     if (isEditable) {
-        filtered = accounts.filter(account =>
-            account.name.toLowerCase().includes(filter.toLowerCase())
-        );
+      filtered = accounts.filter(account =>
+        account.name.toLowerCase().includes(filter.toLowerCase())
+      );
     }
-    
+
+    if (!showPaused) {
+      filtered = filtered.filter(account => account.isActive);
+    }
+
+    if (currencyFilter !== 'all') {
+      filtered = filtered.filter(account => account.currency === currencyFilter);
+    }
+
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(account => account.type === typeFilter);
+    }
+
     return filtered.sort((a, b) => {
-        const aValue = a[sort.key as keyof typeof a];
-        const bValue = b[sort.key as keyof typeof a];
-        if (aValue < bValue) return sort.order === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sort.order === 'asc' ? 1 : -1;
-        return 0;
-      });
-  }, [accounts, filter, sort, isEditable]);
+      const aValue = a[sort.key as keyof typeof a];
+      const bValue = b[sort.key as keyof typeof a];
+      if (aValue < bValue) return sort.order === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sort.order === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [accounts, filter, sort, isEditable, showPaused, currencyFilter, typeFilter]);
 
   const paginatedAccounts = useMemo(() => {
     if (!isEditable) {
@@ -167,38 +330,24 @@ export function AccountBalances({
 
   const totalPages = isEditable ? Math.ceil(sortedAndFilteredAccounts.length / itemsPerPage) : 1;
 
-  const handleInputChange = (id: string, field: string, value: any) => {
-    const newAccounts = accounts.map(account => {
-      if (account.id === id) {
-        if (field === 'balance') {
-          return { ...account, [field]: parseFloat(value) || 0 };
-        }
-        if (field === 'isActive') {
-          return { ...account, [field]: value };
-        }
-        return { ...account, [field]: value };
-      }
-      return account;
-    });
-    setAccounts(newAccounts);
+  const [editingAccount, setEditingAccount] = useState<any | null>(null);
+
+  const handleSaveAccount = (updatedAccount: any) => {
+    setAccounts(prev =>
+      prev.map(a => (a.id === updatedAccount.id ? updatedAccount : a))
+    );
   };
-  
-    const handleUpdate = async (id: string, field: string, value: any) => {
-      if (!isEditable) return;
-      setIsSaving(`${id}-${field}`);
-      const result = await updateAccountAction({ id, field, value });
-      if (result?.error) {
-        toast({
-          title: 'Update Failed',
-          description: result.error,
-          variant: 'destructive',
-        });
-        setAccounts(initialAccounts); // Revert
-      } else {
-        router.refresh();
-      }
-      setIsSaving(null);
-    };
+
+  const handleDelete = async (id: string) => {
+    const result = await deleteAccountAction(id);
+    if (result.success) {
+      toast({ title: 'Account Deleted', description: 'Account removed successfully.' });
+      setAccounts(accounts.filter(account => account.id !== id));
+      router.refresh();
+    } else {
+      toast({ title: 'Delete Failed', description: result.error, variant: 'destructive' });
+    }
+  };
 
   const handleAddNewAccount = async () => {
     setIsAdding(true);
@@ -219,28 +368,6 @@ export function AccountBalances({
     setIsAdding(false);
   };
 
-
-  const deleteRow = async (id: string) => {
-    const originalAccounts = accounts;
-    setAccounts(accounts.filter(a => a.id !== id));
-
-    const result = await deleteTransactionAction(id); // Reusing delete action
-    if (result.error) {
-        toast({
-            title: 'Delete Failed',
-            description: result.error,
-            variant: 'destructive',
-        });
-        setAccounts(originalAccounts);
-    } else {
-        toast({
-            title: 'Account Deleted',
-            description: 'The account has been removed.',
-        });
-        router.refresh();
-    }
-};
-
   const getIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'corriente':
@@ -258,263 +385,205 @@ export function AccountBalances({
     <Card>
       <CardHeader>
         <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center'>
-            <div>
-                <CardTitle>Account Balances</CardTitle>
-                <CardDescription>
-                A live look at your connected account balances.
-                </CardDescription>
-            </div>
-            {isEditable && (
-                <Button onClick={handleAddNewAccount} disabled={isAdding} className="mt-4 sm:mt-0">
-                    {isAdding ? <Loader2 className='animate-spin' /> : <PlusCircle />}
-                    Add Account
-                </Button>
-            )}
+          <div>
+            <CardTitle>Account Balances</CardTitle>
+            <CardDescription>
+              A live look at your connected account balances.
+            </CardDescription>
+          </div>
+          {isEditable && (
+            <Button onClick={handleAddNewAccount} disabled={isAdding} className="mt-4 sm:mt-0">
+              {isAdding ? <Loader2 className='animate-spin' /> : <PlusCircle />}
+              Add Account
+            </Button>
+          )}
         </div>
         <Separator className="my-4" />
         <div className="text-center sm:text-left">
-            <p className="text-sm text-muted-foreground">Total Balance</p>
-            {rateLoading ? <Loader2 className="animate-spin h-8 w-8 mx-auto sm:mx-0" /> : (
-                <>
-                    <p className="text-3xl font-bold">{formatCurrency(totalBalanceUSD, 'USD')}</p>
-                    <p className="text-md text-muted-foreground">{formatCurrency(totalBalanceVES, 'VES')} (1 USD ≈ {officialRate?.toFixed(2)} VES)</p>
-                </>
-            )}
+          <p className="text-sm text-muted-foreground">Total Balance</p>
+          {rateLoading ? <Loader2 className="animate-spin h-8 w-8 mx-auto sm:mx-0" /> : (
+            <>
+              <p className="text-3xl font-bold">{formatCurrency(totalBalanceUSD, 'USD')}</p>
+              <p className="text-md text-muted-foreground">{formatCurrency(totalBalanceVES, 'VES')} (1 USD ≈ {officialRate?.toFixed(2)} VES)</p>
+            </>
+          )}
         </div>
       </CardHeader>
       <CardContent>
         {isEditable && (
-           <div className="mb-4">
-             <Input
-               placeholder="Search accounts..."
-               value={filter}
-               onChange={(e) => setFilter(e.target.value)}
-             />
-           </div>
+          <div className="mb-4 flex flex-col sm:flex-row gap-4 sm:items-center flex-wrap">
+            <Input
+              placeholder="Search accounts..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="max-w-xs"
+            />
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {accountTypes.map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All Currencies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Currencies</SelectItem>
+                {currencies.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center space-x-2 sm:ml-auto">
+              <Checkbox
+                id="showPaused"
+                checked={showPaused}
+                onCheckedChange={(checked) => setShowPaused(checked as boolean)}
+              />
+              <Label htmlFor="showPaused">Show paused accounts</Label>
+            </div>
+          </div>
         )}
         <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                 <Button className="pl-2"  variant="ghost" onClick={() => handleSort('isActive')}>
-                    <ArrowUpDown className="h-4 w-4" />
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort('isActive')} disabled={!showPaused}>
                     Paused
-                 </Button>
-              </TableHead>
-              {
-                /**
-                 <TableHead>
-                <Button className="pl-2" variant="ghost" onClick={() => handleSort('accountNumber')}>
-                    <ArrowUpDown className="h-4 w-4" />
-                    ID Account
-                </Button>
-              </TableHead>
-                */
-              }
-              <TableHead>
-                <Button className="pl-2" variant="ghost" onClick={() => handleSort('name')}>
-                    <ArrowUpDown className="h-4 w-4" />
+                    {showPaused && (
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    )}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort('name')}>
                     Account
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button className="pl-2" variant="ghost" onClick={() => handleSort('type')}>
-                    <ArrowUpDown className="h-4 w-4" />
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort('type')}>
                     Type
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button className="pl-2" variant="ghost" onClick={() => handleSort('currency')}>
-                    <ArrowUpDown className="h-4 w-4" />
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort('currency')}>
                     Currency
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button className="pl-2" variant="ghost" onClick={() => handleSort('balance')}>
-                    <ArrowUpDown className="h-4 w-4" />
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort('balance')}>
                     Balance
-                </Button>
-              </TableHead>
-               <TableHead>
-                <Button className="pl-2" variant="ghost" onClick={() => handleSort('lastTransactionDate')}>
-                    <ArrowUpDown className="h-4 w-4" />
-                    Last Tx Date
-                </Button>
-              </TableHead>
-              {isEditable && <TableHead className="text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedAccounts.map(account => {
-              const Icon = getIcon(account.type);
-              return (
-                <TableRow key={account.id}>
-                  <TableCell>
-                    <Checkbox
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>Last Tx</TableHead>
+                {isEditable && <TableHead className="text-right">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedAccounts.map(account => {
+                const Icon = getIcon(account.type);
+                const displayCurrency = account.currency === 'USDT' ? 'USD' : account.currency;
+                return (
+                  <TableRow key={account.id}>
+                    <TableCell>
+                      <Checkbox
                         checked={!account.isActive}
-                        onCheckedChange={value => {
-                            if (isEditable) {
-                                handleInputChange(account.id, 'isActive', !value);
-                                handleUpdate(account.id, 'isActive', !value);
-                            }
-                        }}
-                        disabled={!isEditable}
-                    />
-                  </TableCell>
-                  {
-                /**
- <TableCell>
-                    {isEditable ? (
-                      <Input
-                        value={account.accountNumber}
-                        onChange={e => handleInputChange(account.id, 'accountNumber', e.target.value)}
-                        onBlur={e => handleUpdate(account.id, 'accountNumber', e.target.value)}
-                        className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                        placeholder="N/A"
+                        disabled
                       />
-                    ) : (
-                      <span>{account.accountNumber || 'N/A'}</span>
-                    )}
-                  </TableCell>
-                */
-              }
-                  <TableCell className="font-medium flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-muted-foreground" />
-                    {isEditable ? (
-                      <Input
-                        value={account.name}
-                        onChange={e =>
-                          handleInputChange(account.id, 'name', e.target.value)
-                        }
-                        onBlur={e => handleUpdate(account.id, 'name', e.target.value)}
-                        className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                      />
-                    ) : (
-                      <span>{account.name}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditable ? (
-                      <Select
-                        value={account.type}
-                        onValueChange={value => {
-                            handleInputChange(account.id, 'type', value);
-                            handleUpdate(account.id, 'type', value);
-                        }}
-                      >
-                        <SelectTrigger className="w-[120px] border-none bg-transparent p-0 h-auto focus:ring-0">
-                          <Badge variant="outline">
-                            <SelectValue placeholder="Select type" />
-                          </Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {accountTypes.map(type => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant="outline">{account.type}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                     {isEditable ? (
-                      <Select
-                        value={account.currency}
-                        onValueChange={value => {
-                            handleInputChange(account.id, 'currency', value);
-                            handleUpdate(account.id, 'currency', value);
-                        }}
-                      >
-                        <SelectTrigger className="w-[100px] border-none bg-transparent p-0 h-auto focus:ring-0">
-                           <SelectValue placeholder="Select currency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currencies.map(c => (
-                            <SelectItem key={c} value={c}>
-                              {c}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span>{account.currency}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditable ? (
-                      <Input
-                        type="number"
-                        value={account.balance}
-                        onChange={e =>
-                          handleInputChange(
-                            account.id,
-                            'balance',
-                            e.target.value
-                          )
-                        }
-                        onBlur={e => handleUpdate(account.id, 'balance', e.target.value)}
-                        className={`font-mono border-none bg-transparent p-0 h-auto focus-visible:ring-0 ${
-                          account.balance >= 0
-                            ? 'text-foreground'
-                            : 'text-destructive'
-                        }`}
-                      />
-                    ) : (
-                       <span className={`font-mono ${account.balance >= 0 ? 'text-foreground' : 'text-destructive'}`}>
-                        {formatCurrency(account.balance, account.currency)}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditable ? (
-                      <Input
-                        type="date"
-                        value={account.lastTransactionDate}
-                        onChange={e => handleInputChange(account.id, 'lastTransactionDate', e.target.value)}
-                        onBlur={e => handleUpdate(account.id, 'lastTransactionDate', e.target.value)}
-                        className="border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                      />
-                    ) : (
-                      <span>{account.lastTransactionDate ? new Date(account.lastTransactionDate).toLocaleDateString() : 'N/A'}</span>
-                    )}
-                  </TableCell>
-                  {isEditable && (
-                    <TableCell className="text-right">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will
-                              permanently delete this account.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteRow(account.id)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
                     </TableCell>
-                  )}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <div className="flex flex-col">
+                          <span>{account.name}</span>
+                          {account.accountNumber && (
+                            <span className="text-xs text-muted-foreground font-mono">
+                              #{account.accountNumber}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{account.type}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span>{account.currency}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`font-mono ${account.balance >= 0
+                          ? 'text-foreground'
+                          : 'text-destructive'
+                          }`}
+                      >
+                        {new Intl.NumberFormat('en-US', {
+                          style: 'currency',
+                          currency: displayCurrency,
+                        }).format(account.balance)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {account.lastTransactionDate
+                        ? (() => {
+                          const [y, m, d] = account.lastTransactionDate.split('-');
+                          return `${d}/${m}/${y}`;
+                        })()
+                        : '—'}
+                    </TableCell>
+                    {isEditable && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingAccount(account)}
+                          >
+                            <Pencil className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will
+                                  permanently delete this account.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(account.id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
         {isEditable && totalPages > 1 && (
           <div className="flex justify-between items-center mt-4">
@@ -536,6 +605,15 @@ export function AccountBalances({
               Next
             </Button>
           </div>
+        )}
+
+        {editingAccount && (
+          <EditAccountModal
+            account={editingAccount}
+            open={!!editingAccount}
+            onOpenChange={(open) => !open && setEditingAccount(null)}
+            onSave={handleSaveAccount}
+          />
         )}
       </CardContent>
     </Card>

@@ -1,8 +1,12 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'standalone',
+  // // Configuración para funcionar detrás de un proxy
+  // experimental: {
+  //   trustHost: true,
+  // },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -41,6 +45,8 @@ const nextConfig: NextConfig = {
     NOTION_ACCOUNTS_DB: process.env.NOTION_ACCOUNTS_DB,
     NOTION_DEBTS_DB: process.env.NOTION_DEBTS_DB,
     NOTION_BUDGET_DB: process.env.NOTION_BUDGET_DB,
+    NOTION_TRANSFER_DB: process.env.NOTION_TRANSFER_DB,
+    NOTION_WISHLIST_DB: process.env.NOTION_WISHLIST_DB,
     BINANCE_API_KEY: process.env.BINANCE_API_KEY,
     BINANCE_API_SECRET: process.env.BINANCE_API_SECRET,
   }
