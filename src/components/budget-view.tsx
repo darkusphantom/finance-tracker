@@ -26,6 +26,21 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+const formatLocalCurrency = (amount: number, currency: string) => {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
+  } catch (e) {
+    return `${currency} ${new Intl.NumberFormat('en-US', {
+      style: 'decimal',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)}`;
+  }
+};
+
 export function BudgetView({ transactions = [] }: { transactions: any[] }) {
   // Focus on the current month by default
   const [date, setDate] = useState<Date>(startOfMonth(new Date()));
@@ -139,7 +154,7 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
                     </span>
                     {t.currency !== 'USD' && (
                       <span className="text-xs font-mono text-muted-foreground">
-                        Local: {new Intl.NumberFormat('en-US', { style: 'currency', currency: t.currency }).format(t.amount)}
+                        Local: {formatLocalCurrency(t.amount, t.currency)}
                       </span>
                     )}
                   </div>
