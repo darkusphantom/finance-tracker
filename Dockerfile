@@ -42,6 +42,7 @@ COPY components.json ./
 
 # Configurar Next.js para standalone output
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV BUILD_STANDALONE=true
 
 # Construir la aplicación
 RUN pnpm run build
