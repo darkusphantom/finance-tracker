@@ -77,6 +77,8 @@ const expenseCategories = [
   { value: 'Insurance', label: '🛡️ Insurance' },
   { value: 'Debt Payment', label: '💸 Debt Payment' },
   { value: 'Prestamo', label: '🤝 Prestamo' },
+  { value: 'Contribution Home', label: '👨‍👩‍👧‍👦 Aporte House' },
+  { value: 'Deposit on Binance', label: '🪙 Deposit on Binance' },
   { value: 'Gift', label: '🎁 Gift' },
   { value: 'Other', label: '❓ Other' },
   { value: 'Others', label: '❓ Others' },
@@ -90,6 +92,7 @@ const incomeCategories = [
   { value: 'Interest', label: '💰 Interest' },
   { value: 'Side Hustle', label: '🚀 Side Hustle' },
   { value: 'Loan', label: '🏦 Loan' },
+  { value: 'Deposit on Binance', label: '👨‍👩🪙 Deposit on Binance' },
 ];
 
 
@@ -669,11 +672,10 @@ export function AddTransactionForm({
                             key={debt.id}
                             type="button"
                             onClick={() => handleSelectDebt(debt)}
-                            className={`w-full text-left rounded-md border p-3 text-sm transition-colors ${
-                              isSelected
-                                ? 'border-primary bg-primary/10'
-                                : 'hover:bg-muted'
-                            }`}
+                            className={`w-full text-left rounded-md border p-3 text-sm transition-colors ${isSelected
+                              ? 'border-primary bg-primary/10'
+                              : 'hover:bg-muted'
+                              }`}
                           >
                             <div className="flex justify-between items-center">
                               <span className="font-medium">{debt.name}</span>
