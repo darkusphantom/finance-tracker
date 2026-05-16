@@ -179,9 +179,9 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
 
   // Filter state per section
   const [incomeTypeFilter, setIncomeTypeFilter] = useState<FilterType>('all');
-  const [incomeStatusFilter, setIncomeStatusFilter] = useState<FilterStatus>('all');
+  const [incomeStatusFilter, setIncomeStatusFilter] = useState<FilterStatus>('active');
   const [expenseTypeFilter, setExpenseTypeFilter] = useState<FilterType>('all');
-  const [expenseStatusFilter, setExpenseStatusFilter] = useState<FilterStatus>('all');
+  const [expenseStatusFilter, setExpenseStatusFilter] = useState<FilterStatus>('active');
 
   const { toast } = useToast();
   const router = useRouter();
@@ -260,7 +260,7 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
     }
   };
 
-  const sortItems = (data: typeof items, sortConfig: {key: string, order: string}) => {
+  const sortItems = (data: typeof items, sortConfig: { key: string, order: string }) => {
     return [...data].sort((a, b) => {
       const aValue = a[sortConfig.key as keyof typeof a];
       const bValue = b[sortConfig.key as keyof typeof a];
@@ -313,16 +313,15 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
     onTypeChange: (v: FilterType) => void;
     onStatusChange: (v: FilterStatus) => void;
   }) => {
-    const hasActiveFilters = typeFilter !== 'all' || statusFilter !== 'all';
+    const hasActiveFilters = typeFilter !== 'all' || statusFilter !== 'active';
 
     const TypeBtn = ({ value, label }: { value: FilterType; label: string }) => (
       <button
         onClick={() => onTypeChange(value)}
-        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
-          typeFilter === value
-            ? 'bg-primary text-primary-foreground border-primary'
-            : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
-        }`}
+        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${typeFilter === value
+          ? 'bg-primary text-primary-foreground border-primary'
+          : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
+          }`}
       >
         {label}
       </button>
@@ -331,11 +330,10 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
     const StatusBtn = ({ value, label }: { value: FilterStatus; label: string }) => (
       <button
         onClick={() => onStatusChange(value)}
-        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
-          statusFilter === value
-            ? 'bg-secondary text-secondary-foreground border-secondary-foreground/20'
-            : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
-        }`}
+        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${statusFilter === value
+          ? 'bg-secondary text-secondary-foreground border-secondary-foreground/20'
+          : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
+          }`}
       >
         {label}
       </button>
@@ -355,7 +353,7 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
 
         {hasActiveFilters && (
           <button
-            onClick={() => { onTypeChange('all'); onStatusChange('all'); }}
+            onClick={() => { onTypeChange('all'); onStatusChange('active'); }}
             className="ml-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="h-3 w-3" />
