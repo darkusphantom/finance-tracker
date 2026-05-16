@@ -31,6 +31,7 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
+import { requireAuth } from '@/lib/auth';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -127,6 +128,7 @@ const suggestCategorySchema = z.object({
 export async function suggestCategoryAction(
   input: CategorizeTransactionInput
 ): Promise<{ category?: string; error?: string }> {
+  await requireAuth();
   const parsedInput = suggestCategorySchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -158,6 +160,7 @@ const extractTransactionSchema = z.object({
 export async function extractTransactionAction(
   input: ExtractTransactionFromImageInput
 ) {
+  await requireAuth();
   const parsedInput = extractTransactionSchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -191,6 +194,8 @@ const addTransactionSchema = z.object({
 });
 
 export async function addTransactionAction(values: unknown) {
+  await requireAuth();
+
   const parsed = addTransactionSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
@@ -257,6 +262,7 @@ export async function addTransactionAction(values: unknown) {
 }
 
 export async function getActiveAccountsAction() {
+  await requireAuth();
   try {
     const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
     const accounts = transformAccountData(rawAccounts);
@@ -268,6 +274,7 @@ export async function getActiveAccountsAction() {
 }
 
 export async function getPendingDebtsAction() {
+  await requireAuth();
   try {
     const rawDebts = await getDebts(process.env.NOTION_DEBTS_DB!);
     const debts = transformDebtData(rawDebts);
@@ -290,6 +297,7 @@ const updateTransactionSchema = z.object({
 });
 
 export async function updateTransactionAction(values: unknown) {
+  await requireAuth();
   const parsed = updateTransactionSchema.safeParse(values);
   if (!parsed.success) {
     console.log(parsed.error);
@@ -331,6 +339,7 @@ export async function updateTransactionAction(values: unknown) {
 }
 
 export async function deleteTransactionAction(id: string) {
+  await requireAuth();
   try {
     await deletePage(id);
     return { success: true };
@@ -341,6 +350,7 @@ export async function deleteTransactionAction(id: string) {
 }
 
 export async function addAccountAction() {
+  await requireAuth();
   try {
     const notionProperties = {
       Name: { title: [{ text: { content: 'New Account' } }] },
@@ -366,6 +376,7 @@ const updateAccountSchema = z.object({
 });
 
 export async function updateAccountAction(values: unknown) {
+  await requireAuth();
   const parsed = updateAccountSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
@@ -405,6 +416,7 @@ export async function updateAccountAction(values: unknown) {
 }
 
 export async function deleteAccountAction(id: string) {
+  await requireAuth();
   try {
     await deletePage(id);
     return { success: true };
@@ -415,6 +427,7 @@ export async function deleteAccountAction(id: string) {
 }
 
 export async function addDebtAction() {
+  await requireAuth();
   try {
     const notionProperties = {
       Title: { title: [{ text: { content: 'New Debt' } }] },
@@ -441,6 +454,7 @@ const updateDebtSchema = z.object({
 });
 
 export async function updateDebtAction(values: unknown) {
+  await requireAuth();
   const parsed = updateDebtSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
@@ -496,6 +510,7 @@ const scheduledPaymentSchema = z.object({
 export async function addScheduledPaymentAction(
   values: z.infer<typeof scheduledPaymentSchema>
 ) {
+  await requireAuth();
   const parsed = scheduledPaymentSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.', details: parsed.error.format() };
@@ -529,6 +544,7 @@ const updateScheduledPaymentSchema = z.object({
 });
 
 export async function updateScheduledPaymentAction(values: unknown) {
+  await requireAuth();
   const parsed = updateScheduledPaymentSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
@@ -567,6 +583,7 @@ export async function updateScheduledPaymentAction(values: unknown) {
 }
 
 export async function deleteScheduledPaymentAction(id: string) {
+  await requireAuth();
   try {
     await deletePage(id);
     return { success: true };
@@ -585,6 +602,7 @@ export async function chatWithBotAction(input: {
   message: string;
   fileDataUri: string | null;
 }) {
+  await requireAuth();
   const parsedInput = financialChatSchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -609,6 +627,7 @@ const riskProfileSchema = z.object({
 export async function getRiskProfileAnalysisAction(
   input: AssessRiskProfileInput
 ) {
+  await requireAuth();
   const parsed = riskProfileSchema.safeParse(input);
   if (!parsed.success) {
     return { error: 'Invalid input.', details: parsed.error.format() };
@@ -624,6 +643,7 @@ export async function getRiskProfileAnalysisAction(
 }
 
 export async function addWishlistItemAction() {
+  await requireAuth();
   try {
     const notionProperties = {
       Name: { title: [{ text: { content: 'Nuevo Item' } }] },
@@ -644,11 +664,12 @@ export async function addWishlistItemAction() {
 
 const updateWishlistItemSchema = z.object({
   id: z.string(),
-  field: z.string(),
+  field: z.string().url().startsWith('https://'),
   value: z.any(),
 });
 
 export async function updateWishlistItemAction(values: unknown) {
+  await requireAuth();
   const parsed = updateWishlistItemSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
