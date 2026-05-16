@@ -42,8 +42,8 @@ const prompt = ai.definePrompt({
   output: {schema: CategorizeTransactionOutputSchema},
   prompt: `You are a personal finance expert. Based on the transaction description and type provided, suggest a category for the transaction.
 
-Description: {{{description}}}
-Transaction Type: {{{type}}}
+Description: {{description}}
+Transaction Type: {{type}}
 
 {{#if (eq type 'income')}}
 Choose ONLY one of the following income categories: ${incomeCategories}.

@@ -66,10 +66,10 @@ const prompt = ai.definePrompt({
   prompt: `You are a financial risk assessment expert. Analyze the user's financial situation to create a risk profile.
 
 User's situation:
-- Job Stability: {{{jobStability}}}
-- Health Status: {{{healthStatus}}}
-- Current Emergency Fund: {{{emergencyFund}}}
-- Monthly Expenses: {{{monthlyExpenses}}}
+- Job Stability: {{jobStability}}
+- Health Status: {{healthStatus}}
+- Current Emergency Fund: {{emergencyFund}}
+- Monthly Expenses: {{monthlyExpenses}}
 
 Based on this, perform the following tasks:
 
