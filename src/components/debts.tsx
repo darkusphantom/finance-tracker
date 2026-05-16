@@ -172,7 +172,7 @@ function EditDebtModal({
 export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: boolean, initialDebts?: any[] }) {
   const [debts, setDebts] = useState(initialDebts);
   const [filter, setFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Pendiente' | 'Listo'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pendiente' | 'Listo'>('Pendiente');
   const [page, setPage] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [editingDebt, setEditingDebt] = useState<any | null>(null);
