@@ -26,6 +26,7 @@ import {
   getDebts,
 } from '@/lib/notion';
 import { transformAccountData, transformDebtData } from '@/lib/utils';
+import { createSessionToken } from '@/lib/session';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
@@ -57,15 +58,21 @@ export async function loginAction(values: unknown) {
       return { error: 'Invalid credentials.' };
     }
 
-    (await cookies()).set('auth-token', user.id, {
+    // [ALTA-2] Firmar el token con HMAC-SHA256 en lugar de almacenar el UUID crudo.
+    // Cualquier alteración del token invalida la firma en el middleware.
+    const sessionToken = await createSessionToken(user.id);
+
+    (await cookies()).set('auth-token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // One week
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 días
       path: '/',
     });
   } catch (error: any) {
+    console.error('Login error:', error);
     return {
-      error: error.message || 'An unexpected error occurred during login.',
+      error: 'An unexpected error occurred. Please try again.',
     };
   }
 
@@ -98,9 +105,9 @@ export async function registerAction(values: unknown) {
     const hashedPassword = await bcrypt.hash(password, 10);
     // await createUser({ email, username, password: hashedPassword });
   } catch (error: any) {
+    console.error('Register error:', error);
     return {
-      error:
-        error.message || 'An unexpected error occurred during registration.',
+      error: 'An unexpected error occurred. Please try again.',
     };
   }
   return { success: true };
