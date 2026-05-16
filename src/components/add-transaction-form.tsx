@@ -40,13 +40,14 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2 } from 'lucide-react';
+import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2, CreditCard, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import {
   suggestCategoryAction,
   extractTransactionAction,
   addTransactionAction,
   getActiveAccountsAction,
+  getPendingDebtsAction,
 } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -123,6 +124,11 @@ export function AddTransactionForm({
   const [scannedTransactions, setScannedTransactions] = useState<ScannedTransaction[]>([]);
   const [scannedDate, setScannedDate] = useState<Date>(new Date());
   const [activeAccounts, setActiveAccounts] = useState<any[]>([]);
+  // Debt linking state
+  const [isDebtPayment, setIsDebtPayment] = useState(false);
+  const [pendingDebts, setPendingDebts] = useState<any[]>([]);
+  const [isLoadingDebts, setIsLoadingDebts] = useState(false);
+  const [selectedDebt, setSelectedDebt] = useState<any | null>(null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -143,8 +149,12 @@ export function AddTransactionForm({
 
 
 
-  useEffect(() => {
+  const refreshAccounts = () => {
     getActiveAccountsAction().then(res => setActiveAccounts(res.accounts));
+  };
+
+  useEffect(() => {
+    refreshAccounts();
   }, []);
 
   const transactionType = useWatch({
@@ -184,16 +194,23 @@ export function AddTransactionForm({
     const result = await addTransactionAction({
       ...values,
       accountBalance: selectedAccount?.balance,
+      // Debt linking
+      debtId: selectedDebt?.id,
+      debtPaidSoFar: selectedDebt?.paid,
     });
 
     if (result.success) {
       toast({
         title: 'Transaction Added',
-        description: `Your transaction has been added.`,
+        description: selectedDebt
+          ? `Transaction added and debt "${selectedDebt.name}" updated.`
+          : `Your transaction has been added.`,
       });
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+      // Refresh accounts so the balance is up to date for the next transaction
+      refreshAccounts();
       setShowContinueDialog(true);
       router.refresh();
     } else {
@@ -322,9 +339,32 @@ export function AddTransactionForm({
   }
 
 
+  const handleToggleDebtPayment = async () => {
+    if (!isDebtPayment) {
+      setIsLoadingDebts(true);
+      const res = await getPendingDebtsAction();
+      setPendingDebts(res.debts);
+      setIsLoadingDebts(false);
+    } else {
+      setSelectedDebt(null);
+    }
+    setIsDebtPayment(prev => !prev);
+  };
+
+  const handleSelectDebt = (debt: any) => {
+    setSelectedDebt(debt);
+    // Pre-fill description with debt name
+    form.setValue('description', `Pago deuda: ${debt.name}`, { shouldValidate: true });
+    if (form.getValues('category') === '') {
+      form.setValue('category', 'Debt Payment');
+    }
+  };
+
   const handleContinueDialogAction = (addAnother: boolean) => {
     setShowContinueDialog(false);
     if (addAnother) {
+      setSelectedDebt(null);
+      setIsDebtPayment(false);
       form.reset({
         description: '',
         amount: 0,
@@ -597,6 +637,62 @@ export function AddTransactionForm({
             />
           </div>
           <div className="space-y-4">
+            {/* Debt Payment Toggle */}
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant={isDebtPayment ? 'default' : 'outline'}
+                className="w-full"
+                onClick={handleToggleDebtPayment}
+                disabled={isLoadingDebts}
+              >
+                {isLoadingDebts ? (
+                  <Loader2 className="animate-spin mr-2" />
+                ) : (
+                  <CreditCard className="mr-2 h-4 w-4" />
+                )}
+                {isDebtPayment ? 'Desactivar pago de deuda' : 'Pagar deuda existente'}
+              </Button>
+
+              {isDebtPayment && (
+                <div className="rounded-md border p-3 space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Selecciona la deuda a pagar:</p>
+                  {pendingDebts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No hay deudas pendientes.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {pendingDebts.map(debt => {
+                        const remaining = debt.total - debt.paid;
+                        const isSelected = selectedDebt?.id === debt.id;
+                        return (
+                          <button
+                            key={debt.id}
+                            type="button"
+                            onClick={() => handleSelectDebt(debt)}
+                            className={`w-full text-left rounded-md border p-3 text-sm transition-colors ${
+                              isSelected
+                                ? 'border-primary bg-primary/10'
+                                : 'hover:bg-muted'
+                            }`}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">{debt.name}</span>
+                              {isSelected && <X className="h-4 w-4 text-primary" onClick={(e) => { e.stopPropagation(); setSelectedDebt(null); }} />}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1 flex gap-3">
+                              <span>Total: <strong>{debt.total.toFixed(2)}</strong></span>
+                              <span>Pagado: <strong>{debt.paid.toFixed(2)}</strong></span>
+                              <span className="text-destructive">Resta: <strong>{remaining.toFixed(2)}</strong></span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <Button
               type="submit"
               className="w-full"

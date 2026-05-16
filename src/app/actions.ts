@@ -23,8 +23,9 @@ import {
   findUserByUsernameOrEmail,
   createUser,
   getAccounts,
+  getDebts,
 } from '@/lib/notion';
-import { transformAccountData } from '@/lib/utils';
+import { transformAccountData, transformDebtData } from '@/lib/utils';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
@@ -167,6 +168,9 @@ const addTransactionSchema = z.object({
   // Account to update after the transaction is recorded
   accountId: z.string().optional(),
   accountBalance: z.coerce.number().optional(),
+  // Debt linking: if this payment is related to an existing debt
+  debtId: z.string().optional(),
+  debtPaidSoFar: z.coerce.number().optional(),
 });
 
 export async function addTransactionAction(values: unknown) {
@@ -176,7 +180,7 @@ export async function addTransactionAction(values: unknown) {
   }
 
   try {
-    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance } = parsed.data;
+    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance, debtId, debtPaidSoFar } = parsed.data;
 
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
@@ -220,6 +224,14 @@ export async function addTransactionAction(values: unknown) {
       });
     }
 
+    // Update debt's Amount Paid if this transaction is linked to a debt
+    if (debtId && debtPaidSoFar !== undefined) {
+      const newAmountPaid = debtPaidSoFar + transactionAmount;
+      await updatePage(debtId, {
+        'Amount Paid': { number: newAmountPaid },
+      });
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Failed to add transaction to Notion:', error);
@@ -235,6 +247,22 @@ export async function getActiveAccountsAction() {
   } catch (error) {
     console.error('Failed to fetch active accounts:', error);
     return { accounts: [] };
+  }
+}
+
+export async function getPendingDebtsAction() {
+  try {
+    const rawDebts = await getDebts(process.env.NOTION_DEBTS_DB!);
+    const debts = transformDebtData(rawDebts);
+    // Only return pending debts of type "Debt" (i.e., money I owe)
+    return {
+      debts: debts.filter(
+        (d: any) => d.type === 'Debt' && d.status !== 'Pagado' && d.status !== 'Paid'
+      ),
+    };
+  } catch (error) {
+    console.error('Failed to fetch pending debts:', error);
+    return { debts: [] };
   }
 }
 

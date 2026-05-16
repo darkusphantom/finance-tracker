@@ -552,7 +552,7 @@ export function AccountBalances({
                           >
                             <Pencil className="w-4 h-4 text-muted-foreground" />
                           </Button>
-                          <AlertDialog>
+                          {/* <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon">
                                 <Trash2 className="w-4 h-4 text-destructive" />
@@ -575,7 +575,7 @@ export function AccountBalances({
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
-                          </AlertDialog>
+                          </AlertDialog> */}
                         </div>
                       </TableCell>
                     )}
