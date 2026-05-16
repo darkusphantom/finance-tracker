@@ -96,7 +96,7 @@ export async function registerAction(values: unknown) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await createUser({ email, username, password: hashedPassword });
+    // await createUser({ email, username, password: hashedPassword });
   } catch (error: any) {
     return {
       error:
