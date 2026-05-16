@@ -48,7 +48,7 @@ You can provide recommendations, create financial plans, and develop effective s
 - Be encouraging, clear, and actionable in your responses.
 - Break down complex topics into simple, understandable steps.
 
-User message: {{{message}}}
+User message: {{message}}
 
 {{#if fileDataUri}}
 Attached document/image for analysis:

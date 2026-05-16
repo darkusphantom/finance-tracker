@@ -141,8 +141,18 @@ export async function suggestCategoryAction(
   }
 }
 
+const MAX_DATA_URI_BYTES = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
 const extractTransactionSchema = z.object({
-  photoDataUri: z.string().min(1, 'Image data is required.'),
+  photoDataUri: z
+    .string()
+    .min(1, 'Image data is required.')
+    .max(MAX_DATA_URI_BYTES * 1.4, 'Image too large.') // base64 añade ~37%
+    .refine(
+      (uri) => ALLOWED_MIME_TYPES.some((type) => uri.startsWith(`data:${type};base64,`)),
+      { message: 'Only JPEG, PNG, WebP or GIF images are allowed.' }
+    ),
 });
 
 export async function extractTransactionAction(
@@ -567,7 +577,7 @@ export async function deleteScheduledPaymentAction(id: string) {
 }
 
 const financialChatSchema = z.object({
-  message: z.string(),
+  message: z.string().max(2000, 'Message too long.'),
   fileDataUri: z.string().nullable(),
 });
 
