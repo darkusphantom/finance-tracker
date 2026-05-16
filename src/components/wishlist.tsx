@@ -239,8 +239,10 @@ function EditWishlistModal({
 
 export function Wishlist({
   initialItems = [],
+  isEditable = true,
 }: {
   initialItems?: any[];
+  isEditable?: boolean;
 }) {
   const [items, setItems] = useState(() => [...initialItems]);
   const [editingItem, setEditingItem] = useState<any | null>(null);
@@ -272,7 +274,7 @@ export function Wishlist({
 
   const sortedAndFilteredItems = useMemo(() => {
     let filtered = items;
-    
+
     // Filter out discarded
     filtered = filtered.filter(item => !item.discard);
 
@@ -293,12 +295,12 @@ export function Wishlist({
     return filtered.sort((a, b) => {
       let aValue = a[sort.key as keyof typeof a];
       let bValue = b[sort.key as keyof typeof a];
-      
+
       if (sort.key === 'priorityLevel') {
         aValue = parseInt(aValue as string, 10) || 0;
         bValue = parseInt(bValue as string, 10) || 0;
       }
-      
+
       if (aValue < bValue) return sort.order === 'asc' ? -1 : 1;
       if (aValue > bValue) return sort.order === 'asc' ? 1 : -1;
       return 0;
@@ -344,14 +346,14 @@ export function Wishlist({
               ))}
             </SelectContent>
           </Select>
-          <div className="flex items-center space-x-2 sm:ml-auto">
+          {isEditable && <div className="flex items-center space-x-2 sm:ml-auto">
             <Checkbox
               id="showPurchased"
               checked={showPurchased}
               onCheckedChange={(checked) => setShowPurchased(checked as boolean)}
             />
             <Label htmlFor="showPurchased">Show purchased</Label>
-          </div>
+          </div>}
         </div>
         <div className="overflow-x-auto">
           <Table>
@@ -381,15 +383,15 @@ export function Wishlist({
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Details</TableHead>
-                <TableHead className="text-right">Edit</TableHead>
+                {isEditable && <TableHead>Status</TableHead>}
+                {isEditable && <TableHead className="text-right">Details</TableHead>}
+                {isEditable && <TableHead className="text-right">Edit</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={isEditable ? 6 : 4} className="text-center py-6 text-muted-foreground">
                     No items found.
                   </TableCell>
                 </TableRow>
@@ -421,14 +423,14 @@ export function Wishlist({
                         currency: 'USD',
                       }).format(item.price)}
                     </TableCell>
-                    <TableCell>
+                    {isEditable && <TableCell>
                       {item.isPurchased ? (
                         <Badge variant="default" className="bg-green-600 hover:bg-green-700">Purchased</Badge>
                       ) : (
                         <Badge variant="outline">Pending</Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </TableCell>}
+                    {isEditable && <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -437,8 +439,8 @@ export function Wishlist({
                       >
                         <Eye className="w-4 h-4 text-muted-foreground" />
                       </Button>
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </TableCell>}
+                    {isEditable && <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -447,7 +449,7 @@ export function Wishlist({
                       >
                         <Pencil className="w-4 h-4 text-muted-foreground" />
                       </Button>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 ))
               )}
