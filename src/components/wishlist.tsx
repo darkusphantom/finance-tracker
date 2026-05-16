@@ -18,8 +18,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Eye, Pencil, Loader2, X } from 'lucide-react';
-import { updateWishlistItemAction } from '@/app/actions';
+import { Eye, Pencil, Loader2, X, PlusCircle } from 'lucide-react';
+import { updateWishlistItemAction, addWishlistItemAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -246,9 +246,39 @@ export function Wishlist({
 }) {
   const [items, setItems] = useState(() => [...initialItems]);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
 
   const handleSaveItem = (updatedItem: any) => {
     setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  };
+
+  const handleAddItem = async () => {
+    setIsAdding(true);
+    const result = await addWishlistItemAction();
+    if (result.success && result.newPageId) {
+      toast({ title: 'Item Added', description: 'The new item has been saved.' });
+      const newItem = {
+        id: result.newPageId,
+        name: 'Nuevo Item',
+        price: 0,
+        isPurchased: false,
+        discard: false,
+        priorityLevel: '',
+        itemCategory: '',
+        storeLocation: '',
+        supplierContact: '',
+        purchaseDate: '',
+        itemImage: '',
+      };
+      setItems(prev => [newItem, ...prev]);
+      setEditingItem(newItem);
+      router.refresh();
+    } else {
+      toast({ title: 'Failed to Add', description: result.error || 'Could not save the new item.', variant: 'destructive' });
+    }
+    setIsAdding(false);
   };
 
   const [filter, setFilter] = useState('');
@@ -317,13 +347,19 @@ export function Wishlist({
   return (
     <Card>
       <CardHeader>
-        <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center'>
+        <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2'>
           <div>
             <CardTitle>Wishlist</CardTitle>
             <CardDescription>
               Track items you want to buy.
             </CardDescription>
           </div>
+          {isEditable && (
+            <Button variant="outline" size="sm" onClick={handleAddItem} disabled={isAdding} className="sm:ml-auto">
+              {isAdding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+              Añadir
+            </Button>
+          )}
         </div>
         <Separator className="my-4" />
       </CardHeader>

@@ -606,6 +606,25 @@ export async function getRiskProfileAnalysisAction(
   }
 }
 
+export async function addWishlistItemAction() {
+  try {
+    const notionProperties = {
+      Name: { title: [{ text: { content: 'Nuevo Item' } }] },
+      Price: { number: 0 },
+      'Is Purchased': { checkbox: false },
+      Discard: { checkbox: false },
+    };
+    const newPage = await addPageToDb(
+      process.env.NOTION_WISHLIST_DB!,
+      notionProperties
+    );
+    return { success: true, newPageId: newPage.id };
+  } catch (error) {
+    console.error('Failed to add wishlist item to Notion:', error);
+    return { error: 'Failed to save wishlist item.' };
+  }
+}
+
 const updateWishlistItemSchema = z.object({
   id: z.string(),
   field: z.string(),
