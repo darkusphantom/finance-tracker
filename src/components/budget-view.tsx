@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -11,12 +11,23 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Cell,
+} from 'recharts';
+import {
   isSameDay,
   isSameMonth,
   startOfMonth,
+  getDaysInMonth,
   format,
   parseISO,
-  isValid,
+  setDate as setDateOfMonth,
 } from 'date-fns';
 
 const formatCurrency = (value: number) => {
@@ -41,17 +52,32 @@ const formatLocalCurrency = (amount: number, currency: string) => {
   }
 };
 
-export function BudgetView({ transactions = [] }: { transactions: any[] }) {
-  // Focus on the current month by default
-  const [date, setDate] = useState<Date>(startOfMonth(new Date()));
+// Custom tooltip for the chart
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2 shadow-md text-sm space-y-1">
+      <p className="font-semibold text-foreground">{label}</p>
+      {payload.map((entry: any) => (
+        <p key={entry.name} style={{ color: entry.color }}>
+          {entry.name}: {formatCurrency(entry.value)}
+        </p>
+      ))}
+    </div>
+  );
+};
 
-  // You can still navigate months if needed, but the primary focus is the current month
+export function BudgetView({ transactions = [] }: { transactions: any[] }) {
+  const [date, setDate] = useState<Date>(startOfMonth(new Date()));
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+
   const handlePreviousMonth = () => {
     setDate(prev => {
       const newDate = new Date(prev);
       newDate.setMonth(newDate.getMonth() - 1);
       return newDate;
     });
+    setSelectedDay(null);
   };
 
   const handleNextMonth = () => {
@@ -60,13 +86,17 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
       newDate.setMonth(newDate.getMonth() + 1);
       return newDate;
     });
+    setSelectedDay(null);
   };
 
-  const monthTransactions = transactions.filter(t =>
-    isSameMonth(parseISO(t.date), date)
-  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const monthTransactions = useMemo(
+    () =>
+      transactions
+        .filter(t => isSameMonth(parseISO(t.date), date))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [transactions, date]
+  );
 
-  // Sum using realUsdAmount for accurate totals
   const monthIncome = monthTransactions
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + (t.realUsdAmount || 0), 0);
@@ -78,6 +108,41 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
   );
 
   const monthNet = monthIncome - monthExpenses;
+
+  // Build one data point per day of the month
+  const chartData = useMemo(() => {
+    const daysInMonth = getDaysInMonth(date);
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const dayDate = setDateOfMonth(date, dayNum);
+      const dayTxns = transactions.filter(t =>
+        isSameDay(parseISO(t.date), dayDate)
+      );
+      const income = dayTxns
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + (t.realUsdAmount || 0), 0);
+      const expenses = Math.abs(
+        dayTxns
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + (t.realUsdAmount || 0), 0)
+      );
+      return { day: dayNum, label: `${format(date, 'MMM')} ${dayNum}`, income, expenses };
+    });
+  }, [transactions, date]);
+
+  const filteredTransactions = useMemo(() => {
+    if (selectedDay === null) return monthTransactions;
+    const dayDate = setDateOfMonth(date, selectedDay);
+    return transactions
+      .filter(t => isSameDay(parseISO(t.date), dayDate))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [selectedDay, monthTransactions, transactions, date]);
+
+  const handleBarClick = (data: any) => {
+    if (!data?.activePayload) return;
+    const clickedDay: number = data.activePayload[0]?.payload?.day;
+    setSelectedDay(prev => (prev === clickedDay ? null : clickedDay));
+  };
 
   return (
     <Card>
@@ -91,16 +156,25 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <button onClick={handlePreviousMonth} className="px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80">
+            <button
+              onClick={handlePreviousMonth}
+              className="px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80"
+            >
               Previous
             </button>
-            <button onClick={handleNextMonth} className="px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80" disabled={isSameMonth(date, new Date())}>
+            <button
+              onClick={handleNextMonth}
+              className="px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80"
+              disabled={isSameMonth(date, new Date())}
+            >
               Next
             </button>
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="space-y-8">
+        {/* KPI row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center border-b pb-8">
           <div className="flex flex-col gap-2">
             <p className="text-sm text-muted-foreground uppercase tracking-wide">Income (USD)</p>
@@ -116,22 +190,108 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
           </div>
           <div className="flex flex-col gap-2">
             <p className="text-sm text-muted-foreground uppercase tracking-wide">Net Balance (USD)</p>
-            <p
-              className={`text-3xl font-bold ${monthNet >= 0 ? 'text-primary' : 'text-destructive'
-                }`}
-            >
+            <p className={`text-3xl font-bold ${monthNet >= 0 ? 'text-primary' : 'text-destructive'}`}>
               {formatCurrency(monthNet)}
             </p>
           </div>
         </div>
 
+        {/* Daily chart */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              Daily breakdown — {format(date, 'MMMM yyyy')}
+            </h3>
+            {selectedDay !== null && (
+              <button
+                onClick={() => setSelectedDay(null)}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              >
+                Clear filter (day {selectedDay})
+              </button>
+            )}
+          </div>
+
+          <div className="w-full h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                onClick={handleBarClick}
+                margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+                barCategoryGap="30%"
+                barGap={2}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 10 }}
+                  className="fill-muted-foreground"
+                  axisLine={false}
+                  tickLine={false}
+                  interval={chartData.length > 20 ? 4 : 1}
+                />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  className="fill-muted-foreground"
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={v => `$${v}`}
+                  width={48}
+                />
+                <Tooltip content={<ChartTooltip />} cursor={{ className: 'fill-accent/40' }} />
+                <Bar dataKey="income" name="Income" radius={[3, 3, 0, 0]}>
+                  {chartData.map(entry => (
+                    <Cell
+                      key={`income-${entry.day}`}
+                      fill={
+                        selectedDay === null || selectedDay === entry.day
+                          ? 'hsl(var(--primary))'
+                          : 'hsl(var(--primary) / 0.25)'
+                      }
+                      className="cursor-pointer"
+                    />
+                  ))}
+                </Bar>
+                <Bar dataKey="expenses" name="Expenses" radius={[3, 3, 0, 0]}>
+                  {chartData.map(entry => (
+                    <Cell
+                      key={`expense-${entry.day}`}
+                      fill={
+                        selectedDay === null || selectedDay === entry.day
+                          ? 'hsl(var(--destructive))'
+                          : 'hsl(var(--destructive) / 0.25)'
+                      }
+                      className="cursor-pointer"
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-4 justify-end text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm bg-primary" />
+              Income
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm bg-destructive" />
+              Expenses
+            </span>
+          </div>
+        </div>
+
+        {/* Transactions list */}
         <div>
           <h3 className="text-lg font-semibold mb-4">
-            Transactions in {format(date, 'MMMM yyyy')}
+            {selectedDay !== null
+              ? `Transactions on ${format(setDateOfMonth(date, selectedDay), 'MMMM d, yyyy')}`
+              : `Transactions in ${format(date, 'MMMM yyyy')}`}
           </h3>
           <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-            {monthTransactions.length > 0 ? (
-              monthTransactions.map(t => (
+            {filteredTransactions.length > 0 ? (
+              filteredTransactions.map(t => (
                 <div
                   key={t.id}
                   className="flex justify-between items-center p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
@@ -147,8 +307,9 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span
-                      className={`font-mono font-bold text-lg ${t.type === 'income' ? 'text-primary' : 'text-destructive'
-                        }`}
+                      className={`font-mono font-bold text-lg ${
+                        t.type === 'income' ? 'text-primary' : 'text-destructive'
+                      }`}
                     >
                       {t.type === 'income' ? '+' : '-'}{formatCurrency(t.realUsdAmount || 0)}
                     </span>
@@ -162,7 +323,7 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
               ))
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border rounded-lg border-dashed">
-                <p>No transactions found for this month.</p>
+                <p>No transactions found{selectedDay !== null ? ` for day ${selectedDay}` : ' for this month'}.</p>
               </div>
             )}
           </div>
