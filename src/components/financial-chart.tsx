@@ -50,14 +50,14 @@ export function FinancialChart({ transactions }: { transactions: any[] }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
           <div>
             <CardTitle>Financial Overview</CardTitle>
             <CardDescription>
               Your financial performance for the selected year.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <Button variant="outline" size="icon" onClick={handlePreviousYear}>
               <ChevronLeft className="h-4 w-4" />
             </Button>

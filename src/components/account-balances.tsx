@@ -591,16 +591,18 @@ export function AccountBalances({
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
               variant="outline"
+              size="sm"
             >
               Previous
             </Button>
-            <span>
+            <span className="text-sm">
               Page {page} of {totalPages}
             </span>
             <Button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
               variant="outline"
+              size="sm"
             >
               Next
             </Button>

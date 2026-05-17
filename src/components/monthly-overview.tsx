@@ -97,7 +97,7 @@ export function MonthlyOverview({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
           <div>
             <CardTitle>Monthly Overview</CardTitle>
             <CardDescription>
@@ -119,7 +119,7 @@ export function MonthlyOverview({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             Annual Summary ({currentYear})
           </p>
-          <div className="grid grid-cols-3 gap-4 rounded-lg border bg-muted/30 p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 rounded-lg border bg-muted/30 p-3 sm:p-4">
             <StatCard label="Income" value={annualIncome} variant="income" />
             <StatCard label="Expenses" value={annualExpenses} variant="expense" />
             <StatCard label="Net" value={annualNet} variant="net" />
@@ -131,7 +131,7 @@ export function MonthlyOverview({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             {current.name}
           </p>
-          <div className="grid grid-cols-3 gap-4 rounded-lg border p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 rounded-lg border p-3 sm:p-4">
             <StatCard label="Income" value={current.totalIncome} variant="income" />
             <StatCard label="Expenses" value={current.totalExpenses} variant="expense" />
             <StatCard label="Net" value={current.net} variant="net" />
@@ -147,20 +147,22 @@ export function MonthlyOverview({
             {filtered.slice(1).map(month => (
               <div
                 key={month.id}
-                className="flex items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/50 transition-colors gap-2 sm:gap-0"
               >
-                <span className="font-medium w-28 shrink-0">{month.name}</span>
-                <span className="text-primary font-mono">
-                  +${month.totalIncome.toFixed(2)}
-                </span>
-                <span className="text-destructive font-mono">
-                  -${month.totalExpenses.toFixed(2)}
-                </span>
-                <span
-                  className={`font-mono font-semibold ${month.net >= 0 ? 'text-primary' : 'text-destructive'}`}
-                >
-                  ${month.net.toFixed(2)}
-                </span>
+                <span className="font-medium w-full sm:w-28 shrink-0 border-b sm:border-none pb-1 sm:pb-0 mb-1 sm:mb-0">{month.name}</span>
+                <div className="flex justify-between sm:justify-end sm:gap-8 w-full sm:w-auto">
+                  <span className="text-primary font-mono">
+                    +${month.totalIncome.toFixed(2)}
+                  </span>
+                  <span className="text-destructive font-mono">
+                    -${month.totalExpenses.toFixed(2)}
+                  </span>
+                  <span
+                    className={`font-mono font-semibold ${month.net >= 0 ? 'text-primary' : 'text-destructive'}`}
+                  >
+                    ${month.net.toFixed(2)}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

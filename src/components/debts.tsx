@@ -251,7 +251,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
 
   return (
     <Card>
-      <CardHeader className='flex-row justify-between items-center'>
+      <CardHeader className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0'>
         <div>
           <CardTitle>Debts & Debtors</CardTitle>
           <CardDescription>
@@ -260,7 +260,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
         </div>
         {isEditable && (
           <Button onClick={handleAddNewDebt} disabled={isAdding}>
-            {isAdding ? <Loader2 className='animate-spin' /> : <PlusCircle />}
+            {isAdding ? <Loader2 className='animate-spin mr-2 h-4 w-4' /> : <PlusCircle className="mr-2 h-4 w-4" />}
             Add Debt
           </Button>
         )}
@@ -274,22 +274,25 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
               onChange={e => setFilter(e.target.value)}
               className="max-w-sm"
             />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant={statusFilter === 'All' ? 'default' : 'outline'}
                 onClick={() => setStatusFilter('All')}
+                size="sm"
               >
                 All
               </Button>
               <Button
                 variant={statusFilter === 'Pendiente' ? 'default' : 'outline'}
                 onClick={() => setStatusFilter('Pendiente')}
+                size="sm"
               >
                 Pendiente
               </Button>
               <Button
                 variant={statusFilter === 'Listo' ? 'default' : 'outline'}
                 onClick={() => setStatusFilter('Listo')}
+                size="sm"
               >
                 Listo
               </Button>
@@ -347,7 +350,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
                 )}
               </div>
 
-              <div className="flex justify-between items-baseline text-sm mt-4 mb-2">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-baseline text-sm mt-4 mb-2 gap-1 sm:gap-0">
                 <div className="text-muted-foreground">
                   <span className="font-mono font-medium">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.paid)}
@@ -357,7 +360,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.total)}
                   </span>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <span className="text-xs text-muted-foreground mr-2">Balance:</span>
                   <span className={`font-mono font-bold ${debt.saldoPendiente > 0 ? 'text-destructive' : 'text-green-500'}`}>
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.saldoPendiente)}
@@ -370,9 +373,9 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
         </div>
         {isEditable && totalPages > 1 && (
           <div className="flex justify-between items-center mt-6">
-            <Button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} variant="outline">Previous</Button>
-            <span>Page {page} of {totalPages}</span>
-            <Button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} variant="outline">Next</Button>
+            <Button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} variant="outline" size="sm">Previous</Button>
+            <span className="text-sm">Page {page} of {totalPages}</span>
+            <Button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} variant="outline" size="sm">Next</Button>
           </div>
         )}
         {editingDebt && (
