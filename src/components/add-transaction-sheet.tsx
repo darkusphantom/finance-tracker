@@ -13,7 +13,7 @@ import { PlusCircle } from 'lucide-react';
 import { AddTransactionForm } from './add-transaction-form';
 import { useState } from 'react';
 
-export function AddTransactionSheet({ accounts = [] }: { accounts?: any[]}) {
+export function AddTransactionSheet({ accounts = [] }: { accounts?: any[] }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -21,7 +21,7 @@ export function AddTransactionSheet({ accounts = [] }: { accounts?: any[]}) {
       <SheetTrigger asChild>
         <Button>
           <PlusCircle />
-          Add Transaction
+          Transaction
         </Button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
