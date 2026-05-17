@@ -85,9 +85,15 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color =
+    let color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
+    
+    // Sanitización básica para prevenir CSS Injection
+    if (color) {
+      color = color.replace(/[;{}"'\\]/g, "")
+    }
+
     return color ? `  --color-${key}: ${color};` : null
   })
   .join("\n")}

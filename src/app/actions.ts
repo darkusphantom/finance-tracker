@@ -134,14 +134,17 @@ export async function logoutAction() {
 
 
 const suggestCategorySchema = z.object({
-  description: z.string().min(1, 'Description is required.'),
+  description: z.string().min(1, 'Description is required.').max(2000),
   type: z.enum(['income', 'expense']),
 });
 
 export async function suggestCategoryAction(
   input: CategorizeTransactionInput
 ): Promise<{ category?: string; error?: string }> {
-  await requireAuth();
+  const userId = await requireAuth();
+  if (!checkRateLimit(`ai_cat_${userId}`, 30, 60 * 1000)) {
+    return { error: 'Demasiadas sugerencias de IA. Espera un minuto.' };
+  }
   const parsedInput = suggestCategorySchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -173,7 +176,10 @@ const extractTransactionSchema = z.object({
 export async function extractTransactionAction(
   input: ExtractTransactionFromImageInput
 ) {
-  await requireAuth();
+  const userId = await requireAuth();
+  if (!checkRateLimit(`ai_img_${userId}`, 10, 60 * 1000)) {
+    return { error: 'Demasiadas imágenes procesadas. Espera un minuto.' };
+  }
   const parsedInput = extractTransactionSchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -189,21 +195,21 @@ export async function extractTransactionAction(
 }
 
 const addTransactionSchema = z.object({
-  description: z.string().min(2),
-  amount: z.coerce.number(),
+  description: z.string().min(2).max(1000),
+  amount: z.coerce.number().safe(),
   type: z.enum(['income', 'expense']),
-  category: z.string().optional(),
+  category: z.string().max(100).optional(),
   date: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format",
   }),
-  currency: z.string().optional(),
-  exchangeRate: z.coerce.number().optional(),
+  currency: z.string().max(10).optional(),
+  exchangeRate: z.coerce.number().safe().optional(),
   // Account to update after the transaction is recorded
-  accountId: z.string().optional(),
-  accountBalance: z.coerce.number().optional(),
+  accountId: z.string().max(255).optional(),
+  accountBalance: z.coerce.number().safe().optional(),
   // Debt linking: if this payment is related to an existing debt
-  debtId: z.string().optional(),
-  debtPaidSoFar: z.coerce.number().optional(),
+  debtId: z.string().max(255).optional(),
+  debtPaidSoFar: z.coerce.number().safe().optional(),
 });
 
 export async function addTransactionAction(values: unknown) {
@@ -275,21 +281,21 @@ export async function addTransactionAction(values: unknown) {
 }
 
 const addTransferSchema = z.object({
-  description: z.string().min(2),
+  description: z.string().min(2).max(1000),
   type: z.enum(['Transferencia', 'Cambio Divisa']),
   date: z.string(),
-  fromAccountId: z.string(),
-  toAccountId: z.string(),
-  sentAmount: z.coerce.number(),
-  receivedAmount: z.coerce.number(),
-  rateSource: z.string().optional(),
-  referenceRate: z.coerce.number().optional(),
-  baseRate: z.coerce.number().optional(),
-  fxLoss: z.coerce.number().optional(),
-  fromAccountBalance: z.coerce.number().optional(),
-  toAccountBalance: z.coerce.number().optional(),
-  toAccountCurrency: z.string().optional(),
-  officialRate: z.coerce.number().optional(),
+  fromAccountId: z.string().max(255),
+  toAccountId: z.string().max(255),
+  sentAmount: z.coerce.number().safe(),
+  receivedAmount: z.coerce.number().safe(),
+  rateSource: z.string().max(100).optional(),
+  referenceRate: z.coerce.number().safe().optional(),
+  baseRate: z.coerce.number().safe().optional(),
+  fxLoss: z.coerce.number().safe().optional(),
+  fromAccountBalance: z.coerce.number().safe().optional(),
+  toAccountBalance: z.coerce.number().safe().optional(),
+  toAccountCurrency: z.string().max(10).optional(),
+  officialRate: z.coerce.number().safe().optional(),
 });
 
 export async function addTransferAction(values: unknown) {
@@ -620,9 +626,9 @@ export async function updateDebtAction(values: unknown) {
 }
 
 const scheduledPaymentSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  day: z.coerce.number().min(1).max(31),
-  amount: z.coerce.number(),
+  name: z.string().min(1, 'Name is required').max(255),
+  day: z.coerce.number().min(1).max(31).safe(),
+  amount: z.coerce.number().safe(),
   type: z.enum(['fixed', 'variable']),
   category: z.enum(['income', 'expense']),
   isActive: z.boolean().optional().default(true),
@@ -724,7 +730,10 @@ export async function chatWithBotAction(input: {
   message: string;
   fileDataUri: string | null;
 }) {
-  await requireAuth();
+  const userId = await requireAuth();
+  if (!checkRateLimit(`ai_chat_${userId}`, 15, 60 * 1000)) {
+    return { error: 'Límite de mensajes alcanzado. Espera un minuto.' };
+  }
   const parsedInput = financialChatSchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -742,14 +751,17 @@ export async function chatWithBotAction(input: {
 const riskProfileSchema = z.object({
   jobStability: z.enum(['stable', 'moderate', 'unstable']),
   healthStatus: z.enum(['good', 'fair', 'poor']),
-  emergencyFund: z.coerce.number().positive(),
-  monthlyExpenses: z.coerce.number().positive(),
+  emergencyFund: z.coerce.number().positive().safe(),
+  monthlyExpenses: z.coerce.number().positive().safe(),
 });
 
 export async function getRiskProfileAnalysisAction(
   input: AssessRiskProfileInput
 ) {
-  await requireAuth();
+  const userId = await requireAuth();
+  if (!checkRateLimit(`ai_risk_${userId}`, 5, 60 * 1000)) {
+    return { error: 'Demasiadas evaluaciones de riesgo. Espera un minuto.' };
+  }
   const parsed = riskProfileSchema.safeParse(input);
   if (!parsed.success) {
     return { error: 'Invalid input.', details: parsed.error.format() };
