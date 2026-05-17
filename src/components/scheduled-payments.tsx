@@ -372,14 +372,14 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
 
     return (
       <div>
-        <div className='flex justify-between items-center mb-2'>
-          <div className="flex items-baseline gap-4">
+        <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 sm:gap-0'>
+          <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
             <h3 className="text-lg font-semibold capitalize">{category === 'income' ? 'Ingresos Programados' : 'Pagos Programados'}</h3>
             <p className="text-sm text-muted-foreground">
               Total: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => addNewRow(category)}>
+          <Button variant="outline" size="sm" onClick={() => addNewRow(category)} className="self-end sm:self-auto">
             <PlusCircle className="mr-2 h-4 w-4" />
             Añadir
           </Button>
@@ -393,100 +393,102 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
           onStatusChange={onStatusChange as (v: FilterStatus) => void}
         />
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <Button variant="ghost" onClick={() => handleSort(category, 'name')}>
-                  Nombre
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className='text-center'>
-                <Button variant="ghost" onClick={() => handleSort(category, 'day')}>
-                  Día del Mes
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button variant="ghost" onClick={() => handleSort(category, 'type')}>
-                  Tipo
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button variant="ghost" onClick={() => handleSort(category, 'amount')}>
-                  Monto
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-right">Acción</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.length === 0 ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">
-                  No hay items que coincidan con los filtros.
-                </TableCell>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort(category, 'name')}>
+                    Nombre
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead className='text-center'>
+                  <Button variant="ghost" onClick={() => handleSort(category, 'day')}>
+                    Día del Mes
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort(category, 'type')}>
+                    Tipo
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort(category, 'amount')}>
+                    Monto
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right">Acción</TableHead>
               </TableRow>
-            ) : (
-              data.map(item => (
-                <TableRow key={item.tempId} className={item.isActive === false ? 'opacity-50 grayscale' : ''}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className='font-medium'>{item.name}</span>
-                      {item.isActive === false && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5">Inactive</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className='text-center'>
-                    <Badge variant="outline">{item.day}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={item.type === 'fixed' ? 'default' : 'secondary'}>
-                      {item.type === 'fixed' ? 'Fijo' : 'Variable'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`font-mono ${item.category === 'income' ? 'text-green-500' : 'text-destructive'}`}>
-                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => setEditingItem(item)}>
-                        <Pencil className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. This will permanently delete this item.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteRow(item.tempId)}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+            </TableHeader>
+            <TableBody>
+              {data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">
+                    No hay items que coincidan con los filtros.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                data.map(item => (
+                  <TableRow key={item.tempId} className={item.isActive === false ? 'opacity-50 grayscale' : ''}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className='font-medium whitespace-nowrap'>{item.name}</span>
+                        {item.isActive === false && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5">Inactive</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className='text-center'>
+                      <Badge variant="outline">{item.day}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={item.type === 'fixed' ? 'default' : 'secondary'}>
+                        {item.type === 'fixed' ? 'Fijo' : 'Variable'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-mono ${item.category === 'income' ? 'text-green-500' : 'text-destructive'}`}>
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => setEditingItem(item)}>
+                          <Pencil className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete this item.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteRow(item.tempId)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     );
   };

@@ -147,7 +147,7 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
           <div>
             <CardTitle>Monthly Budget</CardTitle>
             <CardDescription>
@@ -155,7 +155,7 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
               <strong className="text-foreground">{format(date, 'MMMM yyyy')}</strong>.
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 self-end sm:self-auto">
             <button
               onClick={handlePreviousMonth}
               className="px-3 py-1 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:bg-secondary/80"
@@ -198,14 +198,14 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
 
         {/* Daily chart */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
             <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
               Daily breakdown — {format(date, 'MMMM yyyy')}
             </h3>
             {selectedDay !== null && (
               <button
                 onClick={() => setSelectedDay(null)}
-                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors self-end sm:self-auto"
               >
                 Clear filter (day {selectedDay})
               </button>
@@ -294,10 +294,10 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
               filteredTransactions.map(t => (
                 <div
                   key={t.id}
-                  className="flex justify-between items-center p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-2 sm:gap-0"
                 >
                   <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold text-base">{t.description}</p>
                       <Badge variant="outline" className="text-xs">{t.category}</Badge>
                     </div>
@@ -305,7 +305,7 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
                       {format(parseISO(t.date), 'MMM d, yyyy')}
                     </span>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1 w-full sm:w-auto">
                     <span
                       className={`font-mono font-bold text-lg ${
                         t.type === 'income' ? 'text-primary' : 'text-destructive'
