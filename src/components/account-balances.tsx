@@ -506,9 +506,9 @@ export function AccountBalances({
                       <div className="flex items-center gap-2">
                         <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
                         <div className="flex flex-col">
-                          <span>{account.name}</span>
+                          <span className="whitespace-nowrap">{account.name}</span>
                           {account.accountNumber && (
-                            <span className="text-xs text-muted-foreground font-mono">
+                            <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">
                               #{account.accountNumber}
                             </span>
                           )}
@@ -516,7 +516,7 @@ export function AccountBalances({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{account.type}</Badge>
+                      <Badge variant="outline" className="whitespace-nowrap">{account.type}</Badge>
                     </TableCell>
                     <TableCell>
                       <span>{account.currency}</span>

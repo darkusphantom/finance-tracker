@@ -150,16 +150,19 @@ export function MonthlyOverview({
                 className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted/50 transition-colors gap-2 sm:gap-0"
               >
                 <span className="font-medium w-full sm:w-28 shrink-0 border-b sm:border-none pb-1 sm:pb-0 mb-1 sm:mb-0">{month.name}</span>
-                <div className="flex justify-between sm:justify-end sm:gap-8 w-full sm:w-auto">
-                  <span className="text-primary font-mono">
+                <div className="flex flex-col sm:flex-row justify-between sm:justify-end sm:gap-8 w-full sm:w-auto gap-1">
+                  <span className="text-primary font-mono flex justify-between sm:block">
+                    <span className="sm:hidden text-xs text-muted-foreground uppercase mr-2">Income:</span>
                     +${month.totalIncome.toFixed(2)}
                   </span>
-                  <span className="text-destructive font-mono">
+                  <span className="text-destructive font-mono flex justify-between sm:block">
+                    <span className="sm:hidden text-xs text-muted-foreground uppercase mr-2">Expense:</span>
                     -${month.totalExpenses.toFixed(2)}
                   </span>
                   <span
-                    className={`font-mono font-semibold ${month.net >= 0 ? 'text-primary' : 'text-destructive'}`}
+                    className={`font-mono font-semibold flex justify-between sm:block ${month.net >= 0 ? 'text-primary' : 'text-destructive'}`}
                   >
+                    <span className="sm:hidden text-xs text-muted-foreground uppercase mr-2">Net:</span>
                     ${month.net.toFixed(2)}
                   </span>
                 </div>

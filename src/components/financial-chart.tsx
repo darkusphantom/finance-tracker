@@ -106,8 +106,8 @@ export function FinancialChart({ transactions }: { transactions: any[] }) {
               }}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis tickFormatter={value => `$${value / 1000}k`} />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+              <YAxis tickFormatter={value => `$${value / 1000}k`} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={45} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
