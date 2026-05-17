@@ -32,6 +32,7 @@ import { format } from 'date-fns';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
 import { requireAuth } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -39,6 +40,12 @@ const loginSchema = z.object({
 });
 
 export async function loginAction(values: unknown) {
+  const ip = await getClientIp();
+  // Límite: 5 intentos cada 15 minutos (900000 ms)
+  if (!checkRateLimit(`login_${ip}`, 5, 15 * 60 * 1000)) {
+    return { error: 'Demasiados intentos. Por favor, inténtalo más tarde.' };
+  }
+
   const parsed = loginSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
@@ -87,6 +94,12 @@ const registerSchema = z.object({
 });
 
 export async function registerAction(values: unknown) {
+  const ip = await getClientIp();
+  // Límite: 3 intentos cada 60 minutos (3600000 ms)
+  if (!checkRateLimit(`register_${ip}`, 3, 60 * 60 * 1000)) {
+    return { error: 'Demasiados intentos de registro. Por favor, inténtalo más tarde.' };
+  }
+
   const parsed = registerSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
