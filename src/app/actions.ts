@@ -261,6 +261,111 @@ export async function addTransactionAction(values: unknown) {
   }
 }
 
+const addTransferSchema = z.object({
+  description: z.string().min(2),
+  type: z.enum(['Transferencia', 'Cambio Divisa']),
+  date: z.string(),
+  fromAccountId: z.string(),
+  toAccountId: z.string(),
+  sentAmount: z.coerce.number(),
+  receivedAmount: z.coerce.number(),
+  rateSource: z.string().optional(),
+  referenceRate: z.coerce.number().optional(),
+  baseRate: z.coerce.number().optional(),
+  fxLoss: z.coerce.number().optional(),
+  fromAccountBalance: z.coerce.number().optional(),
+  toAccountBalance: z.coerce.number().optional(),
+  toAccountCurrency: z.string().optional(),
+  officialRate: z.coerce.number().optional(),
+});
+
+export async function addTransferAction(values: unknown) {
+  await requireAuth();
+
+  const parsed = addTransferSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
+
+  try {
+    const {
+      description, type, date, fromAccountId, toAccountId,
+      sentAmount, receivedAmount, rateSource, referenceRate, fxLoss, fromAccountBalance, toAccountBalance,
+      toAccountCurrency, officialRate
+    } = parsed.data;
+
+    const monthName = format(new Date(date), 'MMMM yyyy');
+    const monthPageId = await findOrCreateMonthPage(
+      process.env.NOTION_TOTAL_SAVINGS_DB!,
+      monthName
+    );
+
+    // Using the Transfer & FX DB ID provided by the user if the env variable isn't set yet.
+    const databaseId = process.env.NOTION_TRANSFER_DB || '2d6408ab-be2a-8149-ba7d-ef417c499d92';
+
+    const notionProperties: Record<string, any> = {
+      Description: { title: [{ text: { content: description } }] },
+      Type: { select: { name: type } },
+      Date: { date: { start: date } },
+      'From Account': { relation: [{ id: fromAccountId }] },
+      'To Account': { relation: [{ id: toAccountId }] },
+      'Sent Amount': { number: sentAmount },
+      'Received Amount': { number: receivedAmount },
+      Month: { relation: [{ id: monthPageId }] },
+    };
+
+    if (type === 'Cambio Divisa') {
+      if (rateSource) notionProperties['Rate Source'] = { select: { name: rateSource } };
+      if (referenceRate !== undefined) notionProperties['Reference Rate'] = { number: referenceRate };
+    }
+
+    await addPageToDb(databaseId, notionProperties);
+
+    // Update From Account balance (Subtract sentAmount)
+    if (fromAccountBalance !== undefined) {
+      await updatePage(fromAccountId, {
+        'Balance Amount': { number: fromAccountBalance - sentAmount },
+        'Last Transaction Date': { date: { start: date } },
+      });
+    }
+
+    // Update To Account balance (Add receivedAmount)
+    if (toAccountBalance !== undefined) {
+      await updatePage(toAccountId, {
+        'Balance Amount': { number: toAccountBalance + receivedAmount },
+        'Last Transaction Date': { date: { start: date } },
+      });
+    }
+
+    // Materialize FX Loss as an Expense
+    if (fxLoss && fxLoss > 0) {
+      const expenseDbId = process.env.NOTION_TRANSACTIONS_DB!;
+      const expenseProps: Record<string, any> = {
+        Source: { title: [{ text: { content: `Pérdida Cambiaria: ${description}` } }] },
+        Amount: { number: fxLoss },
+        Tags: { select: { name: 'Deposit on Binance' } },
+        Date: { date: { start: date } },
+        Month: { relation: [{ id: monthPageId }] },
+      };
+
+      if (toAccountCurrency) {
+        expenseProps['Currency'] = { select: { name: toAccountCurrency } };
+      }
+      if (officialRate) {
+        expenseProps['Exchange Rate Used'] = { number: officialRate };
+      }
+
+      await addPageToDb(expenseDbId, expenseProps);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to add transfer to Notion:', error);
+    return { error: 'Failed to save transfer.' };
+  }
+}
+
+
 export async function getActiveAccountsAction() {
   await requireAuth();
   try {
