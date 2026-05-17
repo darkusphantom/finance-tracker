@@ -70,7 +70,7 @@ export async function loginAction(values: unknown) {
       maxAge: 60 * 60 * 24 * 7, // 7 días
       path: '/',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Login error:', error);
     return {
       error: 'An unexpected error occurred. Please try again.',
@@ -105,7 +105,7 @@ export async function registerAction(values: unknown) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     // await createUser({ email, username, password: hashedPassword });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Register error:', error);
     return {
       error: 'An unexpected error occurred. Please try again.',
@@ -398,7 +398,7 @@ export async function getPendingDebtsAction() {
 const updateTransactionSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().max(2000), z.number().safe(), z.boolean(), z.null(), z.undefined()]),
 });
 
 export async function updateTransactionAction(values: unknown) {
@@ -410,7 +410,8 @@ export async function updateTransactionAction(values: unknown) {
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as string;
     let notionProperty;
     switch (field) {
       case 'description':
@@ -477,7 +478,7 @@ export async function addAccountAction() {
 const updateAccountSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().max(2000), z.number().safe(), z.boolean(), z.null(), z.undefined()]),
 });
 
 export async function updateAccountAction(values: unknown) {
@@ -488,7 +489,8 @@ export async function updateAccountAction(values: unknown) {
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as string;
     let notionProperty;
     switch (field) {
       case 'name':
@@ -555,7 +557,7 @@ export async function addDebtAction() {
 const updateDebtSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().max(2000), z.number().safe(), z.boolean(), z.null(), z.undefined()]),
 });
 
 export async function updateDebtAction(values: unknown) {
@@ -566,7 +568,8 @@ export async function updateDebtAction(values: unknown) {
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as string;
     let notionProperty;
     switch (field) {
       case 'name':
@@ -645,7 +648,7 @@ export async function addScheduledPaymentAction(
 const updateScheduledPaymentSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().max(2000), z.number().safe(), z.boolean(), z.null(), z.undefined()]),
 });
 
 export async function updateScheduledPaymentAction(values: unknown) {
@@ -656,7 +659,8 @@ export async function updateScheduledPaymentAction(values: unknown) {
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as any;
     let notionProperty;
     switch (field) {
       case 'name':
@@ -769,8 +773,8 @@ export async function addWishlistItemAction() {
 
 const updateWishlistItemSchema = z.object({
   id: z.string(),
-  field: z.string().url().startsWith('https://'),
-  value: z.any(),
+  field: z.string(),
+  value: z.union([z.string().url().startsWith('https://'), z.number().safe(), z.boolean()]),
 });
 
 export async function updateWishlistItemAction(values: unknown) {
@@ -781,7 +785,8 @@ export async function updateWishlistItemAction(values: unknown) {
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as any;
     let notionProperty;
     switch (field) {
       case 'name':
