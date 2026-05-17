@@ -32,6 +32,7 @@ export function AddTransactionSheet({ accounts = [] }: { accounts?: any[] }) {
             database.
           </SheetDescription>
         </SheetHeader>
+        {/*TODO: fix types - AddTransactionForm doesn't accept accounts prop*/}
         <AddTransactionForm accounts={accounts} afterSubmit={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
