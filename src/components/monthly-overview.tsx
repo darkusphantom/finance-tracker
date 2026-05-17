@@ -84,12 +84,12 @@ export function MonthlyOverview({
   }
 
   // ── Annual totals: sum of all filtered months ────────────────────────────
-  const annualIncome   = filtered.reduce((s, m) => s + m.totalIncome, 0);
+  const annualIncome = filtered.reduce((s, m) => s + m.totalIncome, 0);
   const annualExpenses = filtered.reduce((s, m) => s + m.totalExpenses, 0);
-  const annualNet      = filtered.reduce((s, m) => s + m.net, 0);
+  const annualNet = filtered.reduce((s, m) => s + m.net, 0);
 
   // Most recent month is first (sorted descending by Month Number)
-  const current  = filtered[0];
+  const current = filtered[0];
   const previous = filtered[1] ?? null;
 
   const netTrend = previous !== null ? current.net - previous.net : null;
@@ -120,9 +120,9 @@ export function MonthlyOverview({
             Annual Summary ({currentYear})
           </p>
           <div className="grid grid-cols-3 gap-4 rounded-lg border bg-muted/30 p-4">
-            <StatCard label="Income" value={annualIncome}   variant="income"  />
+            <StatCard label="Income" value={annualIncome} variant="income" />
             <StatCard label="Expenses" value={annualExpenses} variant="expense" />
-            <StatCard label="Net"    value={annualNet}     variant="net"     />
+            <StatCard label="Net" value={annualNet} variant="net" />
           </div>
         </div>
 
@@ -132,9 +132,9 @@ export function MonthlyOverview({
             {current.name}
           </p>
           <div className="grid grid-cols-3 gap-4 rounded-lg border p-4">
-            <StatCard label="Income"   value={current.totalIncome}   variant="income"  />
+            <StatCard label="Income" value={current.totalIncome} variant="income" />
             <StatCard label="Expenses" value={current.totalExpenses} variant="expense" />
-            <StatCard label="Net"      value={current.net}           variant="net"     />
+            <StatCard label="Net" value={current.net} variant="net" />
           </div>
         </div>
 
@@ -159,7 +159,7 @@ export function MonthlyOverview({
                 <span
                   className={`font-mono font-semibold ${month.net >= 0 ? 'text-primary' : 'text-destructive'}`}
                 >
-                  {month.net >= 0 ? '+' : ''}${month.net.toFixed(2)}
+                  ${month.net.toFixed(2)}
                 </span>
               </div>
             ))}

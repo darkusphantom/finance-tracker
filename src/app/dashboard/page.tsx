@@ -45,7 +45,9 @@ export default async function DashboardPage() {
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2">
             <AccountBalances isEditable={false} initialAccounts={accounts} />
-            <Wishlist isEditable={false} initialItems={wishlistItems} />
+            <div className="mt-4">
+              <Wishlist isEditable={false} initialItems={wishlistItems} />
+            </div>
           </div>
           <div className="md:col-span-1">
             <Debts isEditable={false} initialDebts={debts} />
