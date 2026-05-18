@@ -1,9 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   output: process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
-  // // Configuración para funcionar detrás de un proxy
   // experimental: {
   //   trustHost: true,
   // },
@@ -24,32 +22,43 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    // [ALTA-5] Origen específico en lugar de wildcard "*".
+    // NEXT_PUBLIC_APP_URL es la única variable ssegura en el cliente (no contiene secretos).
+    const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' || 'http://localhost:9002';
+
     return [
+      // [ALTA-5] CORS restringido al origen de la propia app
       {
-        source: "/api/:path*",
+        source: '/api/:path*',
         headers: [
-          { key: "Access-Control-Allow-Credentials", value: "true" },
-          { key: "Access-Control-Allow-Origin", value: "*" },
-          { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-          { key: "Access-Control-Allow-Headers", value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version" },
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: allowedOrigin },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,POST,PUT,DELETE' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
         ],
       },
-    ]
+      // [MEDIA-4] Headers de seguridad HTTP para todas las rutas
+      {
+        source: '/(.*)',
+        headers: [
+          // Evita que la app sea embebida en iframes (clickjacking)
+          { key: 'X-Frame-Options', value: 'DENY' },
+          // Desactiva el MIME-sniffing del navegador
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Controla el referrer en navegaciones cross-origin
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Fuerza HTTPS por 2 años (activar solo cuando el dominio sea 100% HTTPS)
+          // { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+        ],
+      },
+    ];
   },
-  env: {
-    NOTION_TOKEN: process.env.NOTION_TOKEN,
-    NOTION_AUTH_DB: process.env.NOTION_AUTH_DB,
-    NOTION_TRANSACTIONS_DB: process.env.NOTION_TRANSACTIONS_DB,
-    NOTION_INCOME_DB: process.env.NOTION_INCOME_DB,
-    NOTION_TOTAL_SAVINGS_DB: process.env.NOTION_TOTAL_SAVINGS_DB,
-    NOTION_ACCOUNTS_DB: process.env.NOTION_ACCOUNTS_DB,
-    NOTION_DEBTS_DB: process.env.NOTION_DEBTS_DB,
-    NOTION_BUDGET_DB: process.env.NOTION_BUDGET_DB,
-    NOTION_TRANSFER_DB: process.env.NOTION_TRANSFER_DB,
-    NOTION_WISHLIST_DB: process.env.NOTION_WISHLIST_DB,
-    BINANCE_API_KEY: process.env.BINANCE_API_KEY,
-    BINANCE_API_SECRET: process.env.BINANCE_API_SECRET,
-  }
+  // [ALTA-4] ELIMINADO: el bloque `env: {}` inyectaba secretos del servidor
+  // (NOTION_TOKEN, BINANCE_API_KEY, etc.) en el bundle de JavaScript del cliente,
+  // haciéndolos visibles en DevTools para cualquier usuario.
+  //
+  // Las Server Actions y Server Components acceden a process.env directamente
+  // desde el servidor — este bloque nunca fue necesario.
 };
 
 export default nextConfig;

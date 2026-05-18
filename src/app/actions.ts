@@ -23,12 +23,16 @@ import {
   findUserByUsernameOrEmail,
   createUser,
   getAccounts,
+  getDebts,
 } from '@/lib/notion';
-import { transformAccountData } from '@/lib/utils';
+import { transformAccountData, transformDebtData } from '@/lib/utils';
+import { createSessionToken } from '@/lib/session';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcrypt';
+import { requireAuth } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const loginSchema = z.object({
   loginIdentifier: z.string().min(1, 'Username or email is required'),
@@ -36,6 +40,12 @@ const loginSchema = z.object({
 });
 
 export async function loginAction(values: unknown) {
+  const ip = await getClientIp();
+  // Límite: 5 intentos cada 15 minutos (900000 ms)
+  if (!checkRateLimit(`login_${ip}`, 5, 15 * 60 * 1000)) {
+    return { error: 'Demasiados intentos. Por favor, inténtalo más tarde.' };
+  }
+
   const parsed = loginSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
@@ -56,15 +66,21 @@ export async function loginAction(values: unknown) {
       return { error: 'Invalid credentials.' };
     }
 
-    (await cookies()).set('auth-token', user.id, {
+    // [ALTA-2] Firmar el token con HMAC-SHA256 en lugar de almacenar el UUID crudo.
+    // Cualquier alteración del token invalida la firma en el middleware.
+    const sessionToken = await createSessionToken(user.id);
+
+    (await cookies()).set('auth-token', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // One week
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 días
       path: '/',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('Login error:', error);
     return {
-      error: error.message || 'An unexpected error occurred during login.',
+      error: 'An unexpected error occurred. Please try again.',
     };
   }
 
@@ -78,6 +94,12 @@ const registerSchema = z.object({
 });
 
 export async function registerAction(values: unknown) {
+  const ip = await getClientIp();
+  // Límite: 3 intentos cada 60 minutos (3600000 ms)
+  if (!checkRateLimit(`register_${ip}`, 3, 60 * 60 * 1000)) {
+    return { error: 'Demasiados intentos de registro. Por favor, inténtalo más tarde.' };
+  }
+
   const parsed = registerSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
@@ -95,11 +117,11 @@ export async function registerAction(values: unknown) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await createUser({ email, username, password: hashedPassword });
-  } catch (error: any) {
+    // await createUser({ email, username, password: hashedPassword });
+  } catch (error: unknown) {
+    console.error('Register error:', error);
     return {
-      error:
-        error.message || 'An unexpected error occurred during registration.',
+      error: 'An unexpected error occurred. Please try again.',
     };
   }
   return { success: true };
@@ -112,13 +134,17 @@ export async function logoutAction() {
 
 
 const suggestCategorySchema = z.object({
-  description: z.string().min(1, 'Description is required.'),
+  description: z.string().min(1, 'Description is required.').max(2000),
   type: z.enum(['income', 'expense']),
 });
 
 export async function suggestCategoryAction(
   input: CategorizeTransactionInput
 ): Promise<{ category?: string; error?: string }> {
+  const userId = await requireAuth();
+  if (!checkRateLimit(`ai_cat_${userId}`, 30, 60 * 1000)) {
+    return { error: 'Demasiadas sugerencias de IA. Espera un minuto.' };
+  }
   const parsedInput = suggestCategorySchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -133,13 +159,27 @@ export async function suggestCategoryAction(
   }
 }
 
+const MAX_DATA_URI_BYTES = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
 const extractTransactionSchema = z.object({
-  photoDataUri: z.string().min(1, 'Image data is required.'),
+  photoDataUri: z
+    .string()
+    .min(1, 'Image data is required.')
+    .max(MAX_DATA_URI_BYTES * 1.4, 'Image too large.') // base64 añade ~37%
+    .refine(
+      (uri) => ALLOWED_MIME_TYPES.some((type) => uri.startsWith(`data:${type};base64,`)),
+      { message: 'Only JPEG, PNG, WebP or GIF images are allowed.' }
+    ),
 });
 
 export async function extractTransactionAction(
   input: ExtractTransactionFromImageInput
 ) {
+  const userId = await requireAuth();
+  if (!checkRateLimit(`ai_img_${userId}`, 10, 60 * 1000)) {
+    return { error: 'Demasiadas imágenes procesadas. Espera un minuto.' };
+  }
   const parsedInput = extractTransactionSchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -155,28 +195,33 @@ export async function extractTransactionAction(
 }
 
 const addTransactionSchema = z.object({
-  description: z.string().min(2),
-  amount: z.coerce.number(),
+  description: z.string().min(2).max(1000),
+  amount: z.coerce.number().safe(),
   type: z.enum(['income', 'expense']),
-  category: z.string().optional(),
+  category: z.string().max(100).optional(),
   date: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format",
   }),
-  currency: z.string().optional(),
-  exchangeRate: z.coerce.number().optional(),
+  currency: z.string().max(10).optional(),
+  exchangeRate: z.coerce.number().safe().optional(),
   // Account to update after the transaction is recorded
-  accountId: z.string().optional(),
-  accountBalance: z.coerce.number().optional(),
+  accountId: z.string().max(255).optional(),
+  accountBalance: z.coerce.number().safe().optional(),
+  // Debt linking: if this payment is related to an existing debt
+  debtId: z.string().max(255).optional(),
+  debtPaidSoFar: z.coerce.number().safe().optional(),
 });
 
 export async function addTransactionAction(values: unknown) {
+  await requireAuth();
+
   const parsed = addTransactionSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
   }
 
   try {
-    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance } = parsed.data;
+    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance, debtId, debtPaidSoFar } = parsed.data;
 
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
@@ -220,6 +265,14 @@ export async function addTransactionAction(values: unknown) {
       });
     }
 
+    // Update debt's Amount Paid if this transaction is linked to a debt
+    if (debtId && debtPaidSoFar !== undefined) {
+      const newAmountPaid = debtPaidSoFar + transactionAmount;
+      await updatePage(debtId, {
+        'Amount Paid': { number: newAmountPaid },
+      });
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Failed to add transaction to Notion:', error);
@@ -227,7 +280,113 @@ export async function addTransactionAction(values: unknown) {
   }
 }
 
+const addTransferSchema = z.object({
+  description: z.string().min(2).max(1000),
+  type: z.enum(['Transferencia', 'Cambio Divisa']),
+  date: z.string(),
+  fromAccountId: z.string().max(255),
+  toAccountId: z.string().max(255),
+  sentAmount: z.coerce.number().safe(),
+  receivedAmount: z.coerce.number().safe(),
+  rateSource: z.string().max(100).optional(),
+  referenceRate: z.coerce.number().safe().optional(),
+  baseRate: z.coerce.number().safe().optional(),
+  fxLoss: z.coerce.number().safe().optional(),
+  fromAccountBalance: z.coerce.number().safe().optional(),
+  toAccountBalance: z.coerce.number().safe().optional(),
+  toAccountCurrency: z.string().max(10).optional(),
+  officialRate: z.coerce.number().safe().optional(),
+});
+
+export async function addTransferAction(values: unknown) {
+  await requireAuth();
+
+  const parsed = addTransferSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: 'Invalid input.' };
+  }
+
+  try {
+    const {
+      description, type, date, fromAccountId, toAccountId,
+      sentAmount, receivedAmount, rateSource, referenceRate, fxLoss, fromAccountBalance, toAccountBalance,
+      toAccountCurrency, officialRate
+    } = parsed.data;
+
+    const monthName = format(new Date(date), 'MMMM yyyy');
+    const monthPageId = await findOrCreateMonthPage(
+      process.env.NOTION_TOTAL_SAVINGS_DB!,
+      monthName
+    );
+
+    // Using the Transfer & FX DB ID provided by the user if the env variable isn't set yet.
+    const databaseId = process.env.NOTION_TRANSFER_DB || '2d6408ab-be2a-8149-ba7d-ef417c499d92';
+
+    const notionProperties: Record<string, any> = {
+      Description: { title: [{ text: { content: description } }] },
+      Type: { select: { name: type } },
+      Date: { date: { start: date } },
+      'From Account': { relation: [{ id: fromAccountId }] },
+      'To Account': { relation: [{ id: toAccountId }] },
+      'Sent Amount': { number: sentAmount },
+      'Received Amount': { number: receivedAmount },
+      Month: { relation: [{ id: monthPageId }] },
+    };
+
+    if (type === 'Cambio Divisa') {
+      if (rateSource) notionProperties['Rate Source'] = { select: { name: rateSource } };
+      if (referenceRate !== undefined) notionProperties['Reference Rate'] = { number: referenceRate };
+    }
+
+    await addPageToDb(databaseId, notionProperties);
+
+    // Update From Account balance (Subtract sentAmount)
+    if (fromAccountBalance !== undefined) {
+      await updatePage(fromAccountId, {
+        'Balance Amount': { number: fromAccountBalance - sentAmount },
+        'Last Transaction Date': { date: { start: date } },
+      });
+    }
+
+    // Update To Account balance (Add receivedAmount)
+    if (toAccountBalance !== undefined) {
+      await updatePage(toAccountId, {
+        'Balance Amount': { number: toAccountBalance + receivedAmount },
+        'Last Transaction Date': { date: { start: date } },
+      });
+    }
+
+    // Materialize FX Loss as an Expense
+    if (fxLoss && fxLoss > 0) {
+      const expenseDbId = process.env.NOTION_TRANSACTIONS_DB!;
+      const expenseProps: Record<string, any> = {
+        Source: { title: [{ text: { content: `Pérdida Cambiaria: ${description}` } }] },
+        Amount: { number: fxLoss },
+        Tags: { select: { name: 'Deposit on Binance' } },
+        Date: { date: { start: date } },
+        Month: { relation: [{ id: monthPageId }] },
+      };
+
+      if (toAccountCurrency) {
+        expenseProps['Currency'] = { select: { name: toAccountCurrency } };
+      }
+      if (officialRate) {
+        expenseProps['Exchange Rate Used'] = { number: officialRate };
+      }
+
+      await addPageToDb(expenseDbId, expenseProps);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to add transfer to Notion:', error);
+    return { error: 'Failed to save transfer.' };
+  }
+}
+
+
 export async function getActiveAccountsAction() {
+  await requireAuth();
   try {
     const rawAccounts = await getAccounts(process.env.NOTION_ACCOUNTS_DB!);
     const accounts = transformAccountData(rawAccounts);
@@ -238,13 +397,31 @@ export async function getActiveAccountsAction() {
   }
 }
 
+export async function getPendingDebtsAction() {
+  await requireAuth();
+  try {
+    const rawDebts = await getDebts(process.env.NOTION_DEBTS_DB!);
+    const debts = transformDebtData(rawDebts);
+    // Only return pending debts of type "Debt" (i.e., money I owe)
+    return {
+      debts: debts.filter(
+        (d: any) => d.type === 'Debt' && d.status !== 'Pagado' && d.status !== 'Paid'
+      ),
+    };
+  } catch (error) {
+    console.error('Failed to fetch pending debts:', error);
+    return { debts: [] };
+  }
+}
+
 const updateTransactionSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().max(2000), z.number().safe(), z.boolean(), z.null(), z.undefined()]),
 });
 
 export async function updateTransactionAction(values: unknown) {
+  await requireAuth();
   const parsed = updateTransactionSchema.safeParse(values);
   if (!parsed.success) {
     console.log(parsed.error);
@@ -252,7 +429,8 @@ export async function updateTransactionAction(values: unknown) {
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as string;
     let notionProperty;
     switch (field) {
       case 'description':
@@ -286,6 +464,7 @@ export async function updateTransactionAction(values: unknown) {
 }
 
 export async function deleteTransactionAction(id: string) {
+  await requireAuth();
   try {
     await deletePage(id);
     return { success: true };
@@ -296,6 +475,7 @@ export async function deleteTransactionAction(id: string) {
 }
 
 export async function addAccountAction() {
+  await requireAuth();
   try {
     const notionProperties = {
       Name: { title: [{ text: { content: 'New Account' } }] },
@@ -317,17 +497,19 @@ export async function addAccountAction() {
 const updateAccountSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().max(2000), z.number().safe(), z.boolean(), z.null(), z.undefined()]),
 });
 
 export async function updateAccountAction(values: unknown) {
+  await requireAuth();
   const parsed = updateAccountSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as string;
     let notionProperty;
     switch (field) {
       case 'name':
@@ -360,6 +542,7 @@ export async function updateAccountAction(values: unknown) {
 }
 
 export async function deleteAccountAction(id: string) {
+  await requireAuth();
   try {
     await deletePage(id);
     return { success: true };
@@ -370,6 +553,7 @@ export async function deleteAccountAction(id: string) {
 }
 
 export async function addDebtAction() {
+  await requireAuth();
   try {
     const notionProperties = {
       Title: { title: [{ text: { content: 'New Debt' } }] },
@@ -392,17 +576,19 @@ export async function addDebtAction() {
 const updateDebtSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().max(2000), z.number().safe(), z.boolean(), z.null(), z.undefined()]),
 });
 
 export async function updateDebtAction(values: unknown) {
+  await requireAuth();
   const parsed = updateDebtSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as string;
     let notionProperty;
     switch (field) {
       case 'name':
@@ -440,9 +626,9 @@ export async function updateDebtAction(values: unknown) {
 }
 
 const scheduledPaymentSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  day: z.coerce.number().min(1).max(31),
-  amount: z.coerce.number(),
+  name: z.string().min(1, 'Name is required').max(255),
+  day: z.coerce.number().min(1).max(31).safe(),
+  amount: z.coerce.number().safe(),
   type: z.enum(['fixed', 'variable']),
   category: z.enum(['income', 'expense']),
   isActive: z.boolean().optional().default(true),
@@ -451,6 +637,7 @@ const scheduledPaymentSchema = z.object({
 export async function addScheduledPaymentAction(
   values: z.infer<typeof scheduledPaymentSchema>
 ) {
+  await requireAuth();
   const parsed = scheduledPaymentSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.', details: parsed.error.format() };
@@ -480,17 +667,19 @@ export async function addScheduledPaymentAction(
 const updateScheduledPaymentSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().max(2000), z.number().safe(), z.boolean(), z.null(), z.undefined()]),
 });
 
 export async function updateScheduledPaymentAction(values: unknown) {
+  await requireAuth();
   const parsed = updateScheduledPaymentSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as any;
     let notionProperty;
     switch (field) {
       case 'name':
@@ -522,6 +711,7 @@ export async function updateScheduledPaymentAction(values: unknown) {
 }
 
 export async function deleteScheduledPaymentAction(id: string) {
+  await requireAuth();
   try {
     await deletePage(id);
     return { success: true };
@@ -532,7 +722,7 @@ export async function deleteScheduledPaymentAction(id: string) {
 }
 
 const financialChatSchema = z.object({
-  message: z.string(),
+  message: z.string().max(2000, 'Message too long.'),
   fileDataUri: z.string().nullable(),
 });
 
@@ -540,6 +730,10 @@ export async function chatWithBotAction(input: {
   message: string;
   fileDataUri: string | null;
 }) {
+  const userId = await requireAuth();
+  if (!checkRateLimit(`ai_chat_${userId}`, 15, 60 * 1000)) {
+    return { error: 'Límite de mensajes alcanzado. Espera un minuto.' };
+  }
   const parsedInput = financialChatSchema.safeParse(input);
   if (!parsedInput.success) {
     return { error: 'Invalid input.' };
@@ -557,13 +751,17 @@ export async function chatWithBotAction(input: {
 const riskProfileSchema = z.object({
   jobStability: z.enum(['stable', 'moderate', 'unstable']),
   healthStatus: z.enum(['good', 'fair', 'poor']),
-  emergencyFund: z.coerce.number().positive(),
-  monthlyExpenses: z.coerce.number().positive(),
+  emergencyFund: z.coerce.number().positive().safe(),
+  monthlyExpenses: z.coerce.number().positive().safe(),
 });
 
 export async function getRiskProfileAnalysisAction(
   input: AssessRiskProfileInput
 ) {
+  const userId = await requireAuth();
+  if (!checkRateLimit(`ai_risk_${userId}`, 5, 60 * 1000)) {
+    return { error: 'Demasiadas evaluaciones de riesgo. Espera un minuto.' };
+  }
   const parsed = riskProfileSchema.safeParse(input);
   if (!parsed.success) {
     return { error: 'Invalid input.', details: parsed.error.format() };
@@ -578,20 +776,42 @@ export async function getRiskProfileAnalysisAction(
   }
 }
 
+export async function addWishlistItemAction() {
+  await requireAuth();
+  try {
+    const notionProperties = {
+      Name: { title: [{ text: { content: 'Nuevo Item' } }] },
+      Price: { number: 0 },
+      'Is Purchased': { checkbox: false },
+      Discard: { checkbox: false },
+    };
+    const newPage = await addPageToDb(
+      process.env.NOTION_WISHLIST_DB!,
+      notionProperties
+    );
+    return { success: true, newPageId: newPage.id };
+  } catch (error) {
+    console.error('Failed to add wishlist item to Notion:', error);
+    return { error: 'Failed to save wishlist item.' };
+  }
+}
+
 const updateWishlistItemSchema = z.object({
   id: z.string(),
   field: z.string(),
-  value: z.any(),
+  value: z.union([z.string().url().startsWith('https://'), z.number().safe(), z.boolean()]),
 });
 
 export async function updateWishlistItemAction(values: unknown) {
+  await requireAuth();
   const parsed = updateWishlistItemSchema.safeParse(values);
   if (!parsed.success) {
     return { error: 'Invalid input.' };
   }
 
   try {
-    const { id, field, value } = parsed.data;
+    const { id, field } = parsed.data;
+    const value = parsed.data.value as any;
     let notionProperty;
     switch (field) {
       case 'name':

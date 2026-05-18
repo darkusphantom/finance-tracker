@@ -506,9 +506,9 @@ export function AccountBalances({
                       <div className="flex items-center gap-2">
                         <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
                         <div className="flex flex-col">
-                          <span>{account.name}</span>
+                          <span className="whitespace-nowrap">{account.name}</span>
                           {account.accountNumber && (
-                            <span className="text-xs text-muted-foreground font-mono">
+                            <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">
                               #{account.accountNumber}
                             </span>
                           )}
@@ -516,7 +516,7 @@ export function AccountBalances({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{account.type}</Badge>
+                      <Badge variant="outline" className="whitespace-nowrap">{account.type}</Badge>
                     </TableCell>
                     <TableCell>
                       <span>{account.currency}</span>
@@ -552,7 +552,7 @@ export function AccountBalances({
                           >
                             <Pencil className="w-4 h-4 text-muted-foreground" />
                           </Button>
-                          <AlertDialog>
+                          {/* <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon">
                                 <Trash2 className="w-4 h-4 text-destructive" />
@@ -575,7 +575,7 @@ export function AccountBalances({
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
-                          </AlertDialog>
+                          </AlertDialog> */}
                         </div>
                       </TableCell>
                     )}
@@ -591,16 +591,18 @@ export function AccountBalances({
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
               variant="outline"
+              size="sm"
             >
               Previous
             </Button>
-            <span>
+            <span className="text-sm">
               Page {page} of {totalPages}
             </span>
             <Button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
               variant="outline"
+              size="sm"
             >
               Next
             </Button>

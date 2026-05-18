@@ -18,8 +18,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Eye, Pencil, Loader2, X } from 'lucide-react';
-import { updateWishlistItemAction } from '@/app/actions';
+import { Eye, Pencil, Loader2, X, PlusCircle } from 'lucide-react';
+import { updateWishlistItemAction, addWishlistItemAction } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -239,14 +239,46 @@ function EditWishlistModal({
 
 export function Wishlist({
   initialItems = [],
+  isEditable = true,
 }: {
   initialItems?: any[];
+  isEditable?: boolean;
 }) {
   const [items, setItems] = useState(() => [...initialItems]);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
 
   const handleSaveItem = (updatedItem: any) => {
     setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  };
+
+  const handleAddItem = async () => {
+    setIsAdding(true);
+    const result = await addWishlistItemAction();
+    if (result.success && result.newPageId) {
+      toast({ title: 'Item Added', description: 'The new item has been saved.' });
+      const newItem = {
+        id: result.newPageId,
+        name: 'Nuevo Item',
+        price: 0,
+        isPurchased: false,
+        discard: false,
+        priorityLevel: '',
+        itemCategory: '',
+        storeLocation: '',
+        supplierContact: '',
+        purchaseDate: '',
+        itemImage: '',
+      };
+      setItems(prev => [newItem, ...prev]);
+      setEditingItem(newItem);
+      router.refresh();
+    } else {
+      toast({ title: 'Failed to Add', description: result.error || 'Could not save the new item.', variant: 'destructive' });
+    }
+    setIsAdding(false);
   };
 
   const [filter, setFilter] = useState('');
@@ -272,7 +304,7 @@ export function Wishlist({
 
   const sortedAndFilteredItems = useMemo(() => {
     let filtered = items;
-    
+
     // Filter out discarded
     filtered = filtered.filter(item => !item.discard);
 
@@ -293,12 +325,12 @@ export function Wishlist({
     return filtered.sort((a, b) => {
       let aValue = a[sort.key as keyof typeof a];
       let bValue = b[sort.key as keyof typeof a];
-      
+
       if (sort.key === 'priorityLevel') {
         aValue = parseInt(aValue as string, 10) || 0;
         bValue = parseInt(bValue as string, 10) || 0;
       }
-      
+
       if (aValue < bValue) return sort.order === 'asc' ? -1 : 1;
       if (aValue > bValue) return sort.order === 'asc' ? 1 : -1;
       return 0;
@@ -315,13 +347,19 @@ export function Wishlist({
   return (
     <Card>
       <CardHeader>
-        <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center'>
+        <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2'>
           <div>
             <CardTitle>Wishlist</CardTitle>
             <CardDescription>
               Track items you want to buy.
             </CardDescription>
           </div>
+          {isEditable && (
+            <Button variant="outline" size="sm" onClick={handleAddItem} disabled={isAdding} className="sm:ml-auto">
+              {isAdding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+              Añadir
+            </Button>
+          )}
         </div>
         <Separator className="my-4" />
       </CardHeader>
@@ -344,14 +382,14 @@ export function Wishlist({
               ))}
             </SelectContent>
           </Select>
-          <div className="flex items-center space-x-2 sm:ml-auto">
+          {isEditable && <div className="flex items-center space-x-2 sm:ml-auto">
             <Checkbox
               id="showPurchased"
               checked={showPurchased}
               onCheckedChange={(checked) => setShowPurchased(checked as boolean)}
             />
             <Label htmlFor="showPurchased">Show purchased</Label>
-          </div>
+          </div>}
         </div>
         <div className="overflow-x-auto">
           <Table>
@@ -381,15 +419,15 @@ export function Wishlist({
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Details</TableHead>
-                <TableHead className="text-right">Edit</TableHead>
+                {isEditable && <TableHead>Status</TableHead>}
+                {isEditable && <TableHead className="text-right">Details</TableHead>}
+                {isEditable && <TableHead className="text-right">Edit</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={isEditable ? 6 : 4} className="text-center py-6 text-muted-foreground">
                     No items found.
                   </TableCell>
                 </TableRow>
@@ -421,14 +459,14 @@ export function Wishlist({
                         currency: 'USD',
                       }).format(item.price)}
                     </TableCell>
-                    <TableCell>
+                    {isEditable && <TableCell>
                       {item.isPurchased ? (
                         <Badge variant="default" className="bg-green-600 hover:bg-green-700">Purchased</Badge>
                       ) : (
                         <Badge variant="outline">Pending</Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </TableCell>}
+                    {isEditable && <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -437,8 +475,8 @@ export function Wishlist({
                       >
                         <Eye className="w-4 h-4 text-muted-foreground" />
                       </Button>
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </TableCell>}
+                    {isEditable && <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -447,7 +485,7 @@ export function Wishlist({
                       >
                         <Pencil className="w-4 h-4 text-muted-foreground" />
                       </Button>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 ))
               )}

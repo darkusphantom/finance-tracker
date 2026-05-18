@@ -46,7 +46,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from './ui/button';
-import { PlusCircle, Trash2, Loader2, ArrowUpDown, Pencil } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, ArrowUpDown, Pencil, X } from 'lucide-react';
 import {
   addScheduledPaymentAction,
   updateScheduledPaymentAction,
@@ -168,17 +168,28 @@ function EditPaymentModal({
   );
 }
 
+type FilterType = 'all' | 'fixed' | 'variable';
+type FilterStatus = 'all' | 'active' | 'inactive';
+
 export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] }) {
   const [items, setItems] = useState(initialItems.map(item => ({ ...item, tempId: item.id || uuidv4() })));
   const [isSaving, setIsSaving] = useState<string | null>(null);
   const [incomeSort, setIncomeSort] = useState({ key: 'name', order: 'asc' });
   const [expenseSort, setExpenseSort] = useState({ key: 'name', order: 'asc' });
+
+  // Filter state per section
+  const [incomeTypeFilter, setIncomeTypeFilter] = useState<FilterType>('all');
+  const [incomeStatusFilter, setIncomeStatusFilter] = useState<FilterStatus>('active');
+  const [expenseTypeFilter, setExpenseTypeFilter] = useState<FilterType>('all');
+  const [expenseStatusFilter, setExpenseStatusFilter] = useState<FilterStatus>('active');
+
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
     setItems(initialItems.map(item => ({ ...item, tempId: item.id || uuidv4() })));
   }, [initialItems]);
+
   const [editingItem, setEditingItem] = useState<any | null>(null);
 
   const handleSaveItem = (updatedItem: any) => {
@@ -202,17 +213,23 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
 
     const result = await addScheduledPaymentAction(newItem);
     if (result.success && result.newPageId) {
-       toast({
+      toast({
         title: 'Item Added',
         description: 'The new item has been saved.',
-       });
-       router.refresh();
+      });
+
+      // Build a persisted item with the real ID, then open the modal
+      const savedItem = { ...newItem, id: result.newPageId, tempId: result.newPageId };
+      setItems(prev => [...prev, savedItem]);
+      setEditingItem(savedItem);
+
+      router.refresh();
     } else {
-        toast({
-            title: 'Failed to Add',
-            description: result.error || 'Could not save the new item.',
-            variant: 'destructive',
-        });
+      toast({
+        title: 'Failed to Add',
+        description: result.error || 'Could not save the new item.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -243,135 +260,238 @@ export function ScheduledPayments({ initialItems = [] }: { initialItems?: any[] 
     }
   };
 
-  const sortItems = (data: typeof items, sortConfig: {key: string, order: string}) => {
+  const sortItems = (data: typeof items, sortConfig: { key: string, order: string }) => {
     return [...data].sort((a, b) => {
-        const aValue = a[sortConfig.key as keyof typeof a];
-        const bValue = b[sortConfig.key as keyof typeof a];
-        if (aValue < bValue) return sortConfig.order === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.order === 'asc' ? 1 : -1;
-        return 0;
+      const aValue = a[sortConfig.key as keyof typeof a];
+      const bValue = b[sortConfig.key as keyof typeof a];
+      if (aValue < bValue) return sortConfig.order === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.order === 'asc' ? 1 : -1;
+      return 0;
     });
-  }
-  
-  const incomeItems = useMemo(() => sortItems(items.filter(item => item.category === 'income'), incomeSort), [items, incomeSort]);
-  const expenseItems = useMemo(() => sortItems(items.filter(item => item.category === 'expense'), expenseSort), [items, expenseSort]);
+  };
 
-  const totalIncome = useMemo(() => incomeItems.reduce((acc, item) => acc + (item.isActive !== false ? (item.amount || 0) : 0), 0), [incomeItems]);
-  const totalExpenses = useMemo(() => expenseItems.reduce((acc, item) => acc + (item.isActive !== false ? (item.amount || 0) : 0), 0), [expenseItems]);
+  const applyFilters = (data: typeof items, typeFilter: FilterType, statusFilter: FilterStatus) => {
+    return data.filter(item => {
+      const typeOk = typeFilter === 'all' || item.type === typeFilter;
+      const statusOk =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && item.isActive !== false) ||
+        (statusFilter === 'inactive' && item.isActive === false);
+      return typeOk && statusOk;
+    });
+  };
 
+  const allIncomeItems = useMemo(() => sortItems(items.filter(item => item.category === 'income'), incomeSort), [items, incomeSort]);
+  const allExpenseItems = useMemo(() => sortItems(items.filter(item => item.category === 'expense'), expenseSort), [items, expenseSort]);
+
+  const incomeItems = useMemo(() => applyFilters(allIncomeItems, incomeTypeFilter, incomeStatusFilter), [allIncomeItems, incomeTypeFilter, incomeStatusFilter]);
+  const expenseItems = useMemo(() => applyFilters(allExpenseItems, expenseTypeFilter, expenseStatusFilter), [allExpenseItems, expenseTypeFilter, expenseStatusFilter]);
+
+  const totalIncome = useMemo(() => allIncomeItems.reduce((acc, item) => acc + (item.isActive !== false ? (item.amount || 0) : 0), 0), [allIncomeItems]);
+  const totalExpenses = useMemo(() => allExpenseItems.reduce((acc, item) => acc + (item.isActive !== false ? (item.amount || 0) : 0), 0), [allExpenseItems]);
 
   const handleSort = (category: 'income' | 'expense', key: string) => {
     const setSort = category === 'income' ? setIncomeSort : setExpenseSort;
     const currentSort = category === 'income' ? incomeSort : expenseSort;
 
     setSort({
-        key,
-        order: currentSort.key === key && currentSort.order === 'asc' ? 'desc' : 'asc'
+      key,
+      order: currentSort.key === key && currentSort.order === 'asc' ? 'desc' : 'asc',
     });
-  }
+  };
 
-  const renderTable = (data: typeof items, category: 'income' | 'expense', total: number) => (
-    <div>
-        <div className='flex justify-between items-center mb-2'>
-             <div className="flex items-baseline gap-4">
-                <h3 className="text-lg font-semibold capitalize">{category === 'income' ? 'Ingresos Programados' : 'Pagos Programados'}</h3>
-                 <p className="text-sm text-muted-foreground">
-                    Total: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
-                </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => addNewRow(category)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Añadir
-            </Button>
+  const FilterBar = ({
+    category,
+    typeFilter,
+    statusFilter,
+    onTypeChange,
+    onStatusChange,
+  }: {
+    category: 'income' | 'expense';
+    typeFilter: FilterType;
+    statusFilter: FilterStatus;
+    onTypeChange: (v: FilterType) => void;
+    onStatusChange: (v: FilterStatus) => void;
+  }) => {
+    const hasActiveFilters = typeFilter !== 'all' || statusFilter !== 'active';
+
+    const TypeBtn = ({ value, label }: { value: FilterType; label: string }) => (
+      <button
+        onClick={() => onTypeChange(value)}
+        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${typeFilter === value
+          ? 'bg-primary text-primary-foreground border-primary'
+          : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
+          }`}
+      >
+        {label}
+      </button>
+    );
+
+    const StatusBtn = ({ value, label }: { value: FilterStatus; label: string }) => (
+      <button
+        onClick={() => onStatusChange(value)}
+        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${statusFilter === value
+          ? 'bg-secondary text-secondary-foreground border-secondary-foreground/20'
+          : 'bg-transparent text-muted-foreground border-border hover:bg-accent'
+          }`}
+      >
+        {label}
+      </button>
+    );
+
+    return (
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <span className="text-xs text-muted-foreground font-medium">Tipo:</span>
+        <TypeBtn value="all" label="Todos" />
+        <TypeBtn value="fixed" label="Fijo" />
+        <TypeBtn value="variable" label="Variable" />
+
+        <span className="text-xs text-muted-foreground font-medium ml-2">Estado:</span>
+        <StatusBtn value="all" label="Todos" />
+        <StatusBtn value="active" label="Activo" />
+        <StatusBtn value="inactive" label="Inactivo" />
+
+        {hasActiveFilters && (
+          <button
+            onClick={() => { onTypeChange('all'); onStatusChange('active'); }}
+            className="ml-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="h-3 w-3" />
+            Limpiar
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderTable = (data: typeof items, category: 'income' | 'expense', total: number) => {
+    const typeFilter = category === 'income' ? incomeTypeFilter : expenseTypeFilter;
+    const statusFilter = category === 'income' ? incomeStatusFilter : expenseStatusFilter;
+    const onTypeChange = category === 'income' ? setIncomeTypeFilter : setExpenseTypeFilter;
+    const onStatusChange = category === 'income' ? setIncomeStatusFilter : setExpenseStatusFilter;
+
+    return (
+      <div>
+        <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 sm:gap-0'>
+          <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+            <h3 className="text-lg font-semibold capitalize">{category === 'income' ? 'Ingresos Programados' : 'Pagos Programados'}</h3>
+            <p className="text-sm text-muted-foreground">
+              Total: {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total)}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => addNewRow(category)} className="self-end sm:self-auto">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Añadir
+          </Button>
         </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-                <Button variant="ghost" onClick={() => handleSort(category, 'name')}>
+
+        <FilterBar
+          category={category}
+          typeFilter={typeFilter}
+          statusFilter={statusFilter}
+          onTypeChange={onTypeChange as (v: FilterType) => void}
+          onStatusChange={onStatusChange as (v: FilterStatus) => void}
+        />
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort(category, 'name')}>
                     Nombre
                     <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            </TableHead>
-            <TableHead className='text-center'>
-                <Button variant="ghost" onClick={() => handleSort(category, 'day')}>
+                  </Button>
+                </TableHead>
+                <TableHead className='text-center'>
+                  <Button variant="ghost" onClick={() => handleSort(category, 'day')}>
                     Día del Mes
                     <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            </TableHead>
-            <TableHead>
-                <Button variant="ghost" onClick={() => handleSort(category, 'type')}>
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort(category, 'type')}>
                     Tipo
                     <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            </TableHead>
-            <TableHead>
-                <Button variant="ghost" onClick={() => handleSort(category, 'amount')}>
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" onClick={() => handleSort(category, 'amount')}>
                     Monto
                     <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-            </TableHead>
-            <TableHead className="text-right">Acción</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map(item => (
-            <TableRow key={item.tempId} className={item.isActive === false ? 'opacity-50 grayscale' : ''}>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <span className='font-medium'>{item.name}</span>
-                  {item.isActive === false && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5">Inactive</Badge>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className='text-center'>
-                <Badge variant="outline">{item.day}</Badge>
-              </TableCell>
-              <TableCell>
-                <Badge variant={item.type === 'fixed' ? 'default' : 'secondary'}>
-                  {item.type === 'fixed' ? 'Fijo' : 'Variable'}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                 <span className={`font-mono ${item.category === 'income' ? 'text-green-500' : 'text-destructive'}`}>
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)}
-                 </span>
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => setEditingItem(item)}>
-                    <Pencil className="w-4 h-4 text-muted-foreground" />
                   </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                           This action cannot be undone. This will permanently delete this item.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteRow(item.tempId)}>
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
+                </TableHead>
+                <TableHead className="text-right">Acción</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">
+                    No hay items que coincidan con los filtros.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.map(item => (
+                  <TableRow key={item.tempId} className={item.isActive === false ? 'opacity-50 grayscale' : ''}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className='font-medium whitespace-nowrap'>{item.name}</span>
+                        {item.isActive === false && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5">Inactive</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className='text-center'>
+                      <Badge variant="outline">{item.day}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={item.type === 'fixed' ? 'default' : 'secondary'}>
+                        {item.type === 'fixed' ? 'Fijo' : 'Variable'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-mono ${item.category === 'income' ? 'text-green-500' : 'text-destructive'}`}>
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.amount)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => setEditingItem(item)}>
+                          <Pencil className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete this item.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteRow(item.tempId)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Card>

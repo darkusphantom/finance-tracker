@@ -176,10 +176,10 @@ function DollarRateMonitor() {
 export function FinancialCalculators() {
   return (
     <Tabs defaultValue="50-30-20" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="50-30-20">50/30/20 Rule</TabsTrigger>
-        <TabsTrigger value="90-10">90/10 Rule</TabsTrigger>
-        <TabsTrigger value="budget">Dollar Monitor</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto gap-2 sm:gap-0 bg-transparent sm:bg-muted p-0 sm:p-1">
+        <TabsTrigger value="50-30-20" className="data-[state=active]:bg-background border sm:border-none shadow-sm sm:shadow-none">50/30/20 Rule</TabsTrigger>
+        <TabsTrigger value="90-10" className="data-[state=active]:bg-background border sm:border-none shadow-sm sm:shadow-none">90/10 Rule</TabsTrigger>
+        <TabsTrigger value="budget" className="data-[state=active]:bg-background border sm:border-none shadow-sm sm:shadow-none">Dollar Monitor</TabsTrigger>
       </TabsList>
       <TabsContent value="50-30-20" className="mt-4">
         <Rule503020Calculator />

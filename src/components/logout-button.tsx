@@ -12,6 +12,9 @@ export function LogoutButton() {
   const handleClick = () => {
     startTransition(async () => {
       await logoutAction();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('chatHistory');
+      }
     });
   };
 

@@ -417,7 +417,7 @@ export function TransactionsTable({
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className={cn('w-[200px] justify-start text-left font-normal', !startDate && 'text-muted-foreground')}
+                  className={cn('w-full sm:w-[200px] justify-start text-left font-normal', !startDate && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {startDate ? format(startDate, 'dd/MM/yyyy') : <span>Start date</span>}
@@ -431,7 +431,7 @@ export function TransactionsTable({
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className={cn('w-[200px] justify-start text-left font-normal', !endDate && 'text-muted-foreground')}
+                  className={cn('w-full sm:w-[200px] justify-start text-left font-normal', !endDate && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {endDate ? format(endDate, 'dd/MM/yyyy') : <span>End date</span>}
@@ -450,114 +450,116 @@ export function TransactionsTable({
           </div>
 
           {/* Table */}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Currency</TableHead>
-                <TableHead>Exchange Rate</TableHead>
-                <TableHead>Real USD</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedTransactions.map(transaction => {
-                // Format date as dd/mm/yyyy for display
-                const [y, m, d] = (transaction.date || '').split('-');
-                const displayDate = y && m && d ? `${d}/${m}/${y}` : transaction.date;
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Currency</TableHead>
+                  <TableHead>Exchange Rate</TableHead>
+                  <TableHead>Real USD</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedTransactions.map(transaction => {
+                  // Format date as dd/mm/yyyy for display
+                  const [y, m, d] = (transaction.date || '').split('-');
+                  const displayDate = y && m && d ? `${d}/${m}/${y}` : transaction.date;
 
-                return (
-                  <TableRow key={transaction.id}>
-                    {/* Date */}
-                    <TableCell className="whitespace-nowrap font-medium text-sm">
-                      {displayDate}
-                    </TableCell>
+                  return (
+                    <TableRow key={transaction.id}>
+                      {/* Date */}
+                      <TableCell className="whitespace-nowrap font-medium text-sm">
+                        {displayDate}
+                      </TableCell>
 
-                    {/* Description */}
-                    <TableCell className="max-w-[200px] truncate text-sm">
-                      {transaction.description}
-                    </TableCell>
+                      {/* Description */}
+                      <TableCell className="max-w-[200px] truncate text-sm">
+                        {transaction.description}
+                      </TableCell>
 
-                    {/* Category */}
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs whitespace-nowrap">
-                        {getCategoryLabel(transaction.category)}
-                      </Badge>
-                    </TableCell>
+                      {/* Category */}
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs whitespace-nowrap">
+                          {getCategoryLabel(transaction.category)}
+                        </Badge>
+                      </TableCell>
 
-                    {/* Amount */}
-                    <TableCell
-                      className={`font-mono text-sm font-semibold ${
-                        transaction.type === 'income' ? 'text-primary' : 'text-destructive'
-                      }`}
-                    >
-                      {transaction.type === 'income' ? '+' : '-'}
-                      {Number(transaction.amount).toLocaleString()}
-                    </TableCell>
+                      {/* Amount */}
+                      <TableCell
+                        className={`font-mono text-sm font-semibold whitespace-nowrap ${
+                          transaction.type === 'income' ? 'text-primary' : 'text-destructive'
+                        }`}
+                      >
+                        {transaction.type === 'income' ? '+' : '-'}
+                        {Number(transaction.amount).toLocaleString()}
+                      </TableCell>
 
-                    {/* Currency */}
-                    <TableCell className="text-sm">
-                      {transaction.currency || 'USD'}
-                    </TableCell>
+                      {/* Currency */}
+                      <TableCell className="text-sm">
+                        {transaction.currency || 'USD'}
+                      </TableCell>
 
-                    {/* Exchange Rate */}
-                    <TableCell className="font-mono text-sm text-muted-foreground">
-                      {transaction.exchangeRate != null
-                        ? transaction.exchangeRate.toLocaleString()
-                        : '—'}
-                    </TableCell>
+                      {/* Exchange Rate */}
+                      <TableCell className="font-mono text-sm text-muted-foreground">
+                        {transaction.exchangeRate != null
+                          ? transaction.exchangeRate.toLocaleString()
+                          : '—'}
+                      </TableCell>
 
-                    {/* Real USD */}
-                    <TableCell className="font-mono text-sm text-muted-foreground">
-                      {transaction.realUsdAmount != null
-                        ? `$${Number(transaction.realUsdAmount).toFixed(2)}`
-                        : '—'}
-                    </TableCell>
+                      {/* Real USD */}
+                      <TableCell className="font-mono text-sm text-muted-foreground">
+                        {transaction.realUsdAmount != null
+                          ? `$${Number(transaction.realUsdAmount).toFixed(2)}`
+                          : '—'}
+                      </TableCell>
 
-                    {/* Actions */}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* Edit */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditingTransaction(transaction)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+                      {/* Actions */}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* Edit */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingTransaction(transaction)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
 
-                        {/* Delete */}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete this transaction.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteRow(transaction.id)}>
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                          {/* Delete */}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete this transaction.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteRow(transaction.id)}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
