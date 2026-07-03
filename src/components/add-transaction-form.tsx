@@ -39,8 +39,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
-import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2, CreditCard, X } from 'lucide-react';
+import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2, CreditCard, X, Info } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import {
   suggestCategoryAction,
@@ -96,6 +102,15 @@ const incomeCategories = [
 ];
 
 
+/** Payment method options for bank accounts that may charge commissions. */
+const PAYMENT_METHODS = [
+  { value: 'pago_movil', label: '📱 Pago Móvil' },
+  { value: 'transferencia', label: '🏦 Transferencia' },
+  { value: 'c2p', label: '🔁 C2P' },
+  { value: 'debito', label: '💳 Pago Débito' },
+  { value: 'punto', label: '🖥️ Por Punto' },
+] as const;
+
 const formSchema = z.object({
   description: z.string().min(2, {
     message: 'Description must be at least 2 characters.',
@@ -109,6 +124,8 @@ const formSchema = z.object({
   currency: z.string().optional(),
   exchangeRate: z.coerce.number().optional(),
   accountId: z.string().optional(),
+  /** Payment method — required when the account belongs to a commission-bearing bank. */
+  paymentMethod: z.string().optional(),
 });
 
 type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string, category?: string };
@@ -147,6 +164,7 @@ export function AddTransactionForm({
       currency: 'VES',
       exchangeRate: 0,
       accountId: undefined,
+      paymentMethod: undefined,
     },
   });
 
@@ -170,6 +188,18 @@ export function AddTransactionForm({
     name: 'currency',
   });
 
+  /** Tracks the selected accountId to derive commission preview. */
+  const selectedAccountId = useWatch({
+    control: form.control,
+    name: 'accountId',
+  });
+
+  /** Tracks the payment method chosen by the user. */
+  const selectedPaymentMethod = useWatch({
+    control: form.control,
+    name: 'paymentMethod',
+  });
+
   const { rates } = useExchangeRates();
 
   useEffect(() => {
@@ -186,32 +216,95 @@ export function AddTransactionForm({
 
   const filteredAccounts = activeAccounts.filter(account => account.currency === selectedCurrency);
 
+  /** The full account object currently selected in the form. */
+  const selectedAccount = activeAccounts.find(a => a.id === selectedAccountId);
+
+  /**
+   * True when the selected account belongs to a bank that charges commissions
+   * (BDV or Provincial) on a VES expense — regardless of payment method.
+   * Used to conditionally render the payment method selector.
+   */
+  const isCommissionBank =
+    transactionType === 'expense' &&
+    selectedCurrency === 'VES' &&
+    !!selectedAccount &&
+    ['venezuela', 'provincial'].some((bank) =>
+      selectedAccount.name?.toLowerCase().includes(bank)
+    );
+
+  /**
+   * Commission preview — 0.3% applied ONLY when the payment method is Pago Móvil.
+   */
+  const COMMISSION_RATE = 0.003;
+  const isCommissionApplicable = isCommissionBank && selectedPaymentMethod === 'pago_movil';
+  const currentAmount = form.watch('amount') || 0;
+  const commissionPreview = isCommissionApplicable
+    ? parseFloat((Math.abs(currentAmount) * COMMISSION_RATE).toFixed(2))
+    : 0;
+
   const categories = transactionType === 'income' ? incomeCategories : expenseCategories;
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
 
-    // Find the selected account's current balance to pass to the action
-    const selectedAccount = activeAccounts.find(a => a.id === values.accountId);
+    // Find the selected account's data to pass balance and name to the action
+    const accountForSubmit = activeAccounts.find(a => a.id === values.accountId);
     const result = await addTransactionAction({
       ...values,
-      accountBalance: selectedAccount?.balance,
+      accountBalance: accountForSubmit?.balance,
+      // Pass the account name so the server action can determine commission eligibility
+      accountName: accountForSubmit?.name,
       // Debt linking
       debtId: selectedDebt?.id,
       debtPaidSoFar: selectedDebt?.paid,
     });
 
     if (result.success) {
+      const commissionCharged = 'commission' in result ? result.commission : 0;
       toast({
         title: 'Transaction Added',
         description: selectedDebt
           ? `Transaction added and debt "${selectedDebt.name}" updated.`
-          : `Your transaction has been added.`,
+          : commissionCharged && commissionCharged > 0
+            ? `Transacción guardada. Comisión bancaria aplicada: ${commissionCharged.toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES`
+            : `Your transaction has been added.`,
       });
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+
+      // Optimistically update local activeAccounts state to prevent stale data between submissions
+      if (values.accountId) {
+        const amountValue = Math.abs(values.amount);
+        const totalDeduction = amountValue + (typeof commissionCharged === 'number' ? commissionCharged : 0);
+        setActiveAccounts((prev) =>
+          prev.map((acc) => {
+            if (acc.id === values.accountId) {
+              const newBalance =
+                values.type === 'income'
+                  ? acc.balance + amountValue
+                  : acc.balance - totalDeduction;
+              return { ...acc, balance: newBalance };
+            }
+            return acc;
+          })
+        );
+      }
+
+      // Optimistically update local pendingDebts state to prevent stale data
+      if (selectedDebt) {
+        const amountValue = Math.abs(values.amount);
+        setPendingDebts((prev) =>
+          prev.map((d) => {
+            if (d.id === selectedDebt.id) {
+              return { ...d, paid: d.paid + amountValue };
+            }
+            return d;
+          })
+        );
+      }
+
       // Refresh accounts so the balance is up to date for the next transaction
       refreshAccounts();
       setShowContinueDialog(true);
@@ -356,27 +449,42 @@ export function AddTransactionForm({
 
   const handleSelectDebt = (debt: any) => {
     setSelectedDebt(debt);
-    // Pre-fill description with debt name
-    form.setValue('description', `Pago deuda: ${debt.name}`, { shouldValidate: true });
-    if (form.getValues('category') === '') {
-      form.setValue('category', 'Debt Payment');
+    const currentType = form.getValues('type');
+    if (currentType === 'expense') {
+      // Paying off a debt I owe
+      form.setValue('description', `Pago deuda: ${debt.name}`, { shouldValidate: true });
+      if (form.getValues('category') === '') {
+        form.setValue('category', 'Debt Payment');
+      }
+    } else {
+      // Collecting from a debtor (income)
+      form.setValue('description', `Cobro deudor: ${debt.name}`, { shouldValidate: true });
+      if (form.getValues('category') === '') {
+        form.setValue('category', 'Loan');
+      }
     }
   };
 
   const handleContinueDialogAction = (addAnother: boolean) => {
     setShowContinueDialog(false);
     if (addAnother) {
+      const currentExchangeRate = form.getValues('exchangeRate');
+      const currentCurrency = form.getValues('currency');
+      const currentAccountId = form.getValues('accountId');
+      const currentType = form.getValues('type');
+
       setSelectedDebt(null);
       setIsDebtPayment(false);
       form.reset({
         description: '',
         amount: 0,
-        type: 'expense',
+        type: currentType,
         category: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        currency: 'VES',
-        exchangeRate: undefined,
-        accountId: undefined,
+        currency: currentCurrency,
+        exchangeRate: currentExchangeRate,
+        accountId: currentAccountId,
+        paymentMethod: undefined,
       });
     } else {
       afterSubmit?.();
@@ -501,6 +609,7 @@ export function AddTransactionForm({
                 <FormItem>
                   <div className="flex justify-between items-center">
                     <FormLabel>Category</FormLabel>
+                    {/*
                     <Button
                       type="button"
                       variant="outline"
@@ -515,6 +624,7 @@ export function AddTransactionForm({
                       )}
                       Suggest
                     </Button>
+                    */}
                   </div>
                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
@@ -638,9 +748,71 @@ export function AddTransactionForm({
                 </FormItem>
               )}
             />
+
+            {/* Payment method selector — shown only for commission-bearing bank accounts on VES expenses */}
+            {isCommissionBank && (
+              <FormField
+                control={form.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>Método de pago</FormLabel>
+
+                      {/* Commission tooltip — visible only when Pago Móvil is selected and amount is entered */}
+                      {isCommissionApplicable && commissionPreview > 0 && (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-medium text-yellow-600 dark:text-yellow-400 cursor-default select-none">
+                                <Info className="h-3 w-3" />
+                                +{commissionPreview.toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-[220px] space-y-1 text-xs">
+                              <p className="font-semibold text-yellow-500">⚠️ Comisión bancaria (0.3%)</p>
+                              <p>
+                                Comisión:{' '}
+                                <span className="font-mono font-bold">
+                                  {commissionPreview.toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES
+                                </span>
+                              </p>
+                              <p className="border-t border-border pt-1">
+                                Total descontado:{' '}
+                                <span className="font-mono font-bold">
+                                  {(Math.abs(currentAmount) + commissionPreview).toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES
+                                </span>
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? ''}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el método de pago" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PAYMENT_METHODS.map((method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </div>
           <div className="space-y-4">
-            {/* Debt Payment Toggle */}
+            {/* Debt / Debtor Toggle — label and list vary by transaction type */}
             <div className="space-y-3">
               <Button
                 type="button"
@@ -654,43 +826,81 @@ export function AddTransactionForm({
                 ) : (
                   <CreditCard className="mr-2 h-4 w-4" />
                 )}
-                {isDebtPayment ? 'Desactivar pago de deuda' : 'Pagar deuda existente'}
+                {isDebtPayment
+                  ? transactionType === 'expense'
+                    ? 'Desactivar pago de deuda'
+                    : 'Desactivar cobro de deudor'
+                  : transactionType === 'expense'
+                    ? 'Pagar deuda existente'
+                    : 'Registrar cobro de deudor'}
               </Button>
 
               {isDebtPayment && (
                 <div className="rounded-md border p-3 space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Selecciona la deuda a pagar:</p>
-                  {pendingDebts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay deudas pendientes.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {pendingDebts.map(debt => {
-                        const remaining = debt.total - debt.paid;
-                        const isSelected = selectedDebt?.id === debt.id;
-                        return (
-                          <button
-                            key={debt.id}
-                            type="button"
-                            onClick={() => handleSelectDebt(debt)}
-                            className={`w-full text-left rounded-md border p-3 text-sm transition-colors ${isSelected
-                              ? 'border-primary bg-primary/10'
-                              : 'hover:bg-muted'
-                              }`}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium">{debt.name}</span>
-                              {isSelected && <X className="h-4 w-4 text-primary" onClick={(e) => { e.stopPropagation(); setSelectedDebt(null); }} />}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1 flex gap-3">
-                              <span>Total: <strong>{debt.total.toFixed(2)}</strong></span>
-                              <span>Pagado: <strong>{debt.paid.toFixed(2)}</strong></span>
-                              <span className="text-destructive">Resta: <strong>{remaining.toFixed(2)}</strong></span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {transactionType === 'expense'
+                      ? 'Selecciona la deuda a pagar:'
+                      : 'Selecciona el deudor a cobrar:'}
+                  </p>
+                  {(() => {
+                    /**
+                     * Filter by type AND remaining balance:
+                     * - expense → Debt entries (money I owe) with remaining > 0
+                     * - income  → Debtor entries (money owed to me) with remaining > 0
+                     */
+                    const relevantEntries = pendingDebts.filter(d =>
+                      (transactionType === 'expense' ? d.type === 'Debt' : d.type === 'Debtor') &&
+                      (d.total - d.paid) > 0
+                    );
+
+                    if (relevantEntries.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center gap-1 py-3 text-center">
+                          <span className="text-lg">{transactionType === 'expense' ? '🎉' : '📭'}</span>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {transactionType === 'expense'
+                              ? '¡No tienes deudas pendientes!'
+                              : 'No hay deudores pendientes.'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {transactionType === 'expense'
+                              ? 'No debes nada en este momento.'
+                              : 'Nadie te debe dinero en este momento.'}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {relevantEntries.map(debt => {
+                          const remaining = debt.total - debt.paid;
+                          const isSelected = selectedDebt?.id === debt.id;
+                          return (
+                            <button
+                              key={debt.id}
+                              type="button"
+                              onClick={() => handleSelectDebt(debt)}
+                              className={`w-full text-left rounded-md border p-3 text-sm transition-colors ${isSelected
+                                ? 'border-primary bg-primary/10'
+                                : 'hover:bg-muted'
+                                }`}
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">{debt.name}</span>
+                                {isSelected && <X className="h-4 w-4 text-primary" onClick={(e) => { e.stopPropagation(); setSelectedDebt(null); }} />}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1 flex gap-3">
+                                <span>Total: <strong>{debt.total.toFixed(2)}</strong></span>
+                                <span>Pagado: <strong>{debt.paid.toFixed(2)}</strong></span>
+                                <span className="text-destructive">Resta: <strong>{remaining.toFixed(2)}</strong></span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

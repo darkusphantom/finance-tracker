@@ -27,6 +27,7 @@ import {
   ChevronsRight,
   Calendar as CalendarIcon,
   Loader2,
+  Link2,
 } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -307,6 +308,40 @@ function EditTransactionModal({
               <Label>Real USD (calculated)</Label>
               <div className="flex items-center h-9 px-3 rounded-md border bg-muted text-sm font-mono">
                 ${Number(form.realUsdAmount).toFixed(4)}
+              </div>
+            </div>
+          )}
+
+          {/* Bank Commission — read-only, shown only when a commission was charged */}
+          {form.commission != null && Number(form.commission) > 0 && (
+            <div className="grid gap-1.5">
+              <Label className="flex items-center gap-1.5">
+                <span>Comisión bancaria</span>
+                <span className="text-xs font-normal text-muted-foreground">(0.3% — solo lectura)</span>
+              </Label>
+              <div className="flex items-center justify-between h-9 px-3 rounded-md border border-yellow-500/40 bg-yellow-500/10 text-sm font-mono text-yellow-700 dark:text-yellow-400">
+                <span>{Number(form.commission).toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES</span>
+                <span className="text-xs font-sans text-muted-foreground">
+                  Total descontado: {(Number(form.amount) + Number(form.commission)).toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Debt link indicator — read-only, shown only when the transaction is linked to a debt or debtor */}
+          {(form.category === 'Debt Payment' || (form.description || '').startsWith('Cobro deudor:')) && (
+            <div className="grid gap-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Link2 className="h-3.5 w-3.5" />
+                <span>{form.category === 'Debt Payment' ? 'Pago de deuda' : 'Cobro de deudor'}</span>
+              </Label>
+              <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-primary/30 bg-primary/5 text-sm text-primary">
+                <Link2 className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {form.category === 'Debt Payment'
+                    ? 'Esta transacción está vinculada al pago de una deuda.'
+                    : 'Esta transacción está vinculada al cobro de un deudor.'}
+                </span>
               </div>
             </div>
           )}

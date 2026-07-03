@@ -16,6 +16,7 @@ import {
   type AssessRiskProfileInput,
 } from '@/ai/flows/risk-profile-flow';
 import {
+  getPage,
   addPageToDb,
   deletePage,
   updatePage,
@@ -194,6 +195,34 @@ export async function extractTransactionAction(
   }
 }
 
+/** Commission rate applied by Banco de Venezuela and Banco Provincial exclusively on Pago Móvil transactions. */
+const BANK_COMMISSION_RATE = 0.003;
+
+/** Banks that charge a commission on VES Pago Móvil expenses. Matching is case-insensitive substring. */
+const COMMISSION_BANKS = ['venezuela', 'provincial'] as const;
+
+/**
+ * Determines whether a bank commission (0.3%) should be charged.
+ * Commission applies **only** when the payment method is 'pago_movil' on a
+ * VES expense from Banco de Venezuela or Banco Provincial.
+ *
+ * @param accountName - Name of the selected account.
+ * @param type - Transaction type ('income' | 'expense').
+ * @param currency - Transaction currency (must be 'VES').
+ * @param paymentMethod - Payment method chosen by the user.
+ */
+const shouldChargeCommission = (
+  accountName: string | undefined,
+  type: string,
+  currency: string | undefined,
+  paymentMethod: string | undefined
+): boolean => {
+  if (type !== 'expense' || currency !== 'VES' || !accountName) return false;
+  if (paymentMethod !== 'pago_movil') return false;
+  const lower = accountName.toLowerCase();
+  return COMMISSION_BANKS.some((bank) => lower.includes(bank));
+};
+
 const addTransactionSchema = z.object({
   description: z.string().min(2).max(1000),
   amount: z.coerce.number().safe(),
@@ -207,6 +236,10 @@ const addTransactionSchema = z.object({
   // Account to update after the transaction is recorded
   accountId: z.string().max(255).optional(),
   accountBalance: z.coerce.number().safe().optional(),
+  // Name of the selected account (used for commission logic)
+  accountName: z.string().max(255).optional(),
+  // Payment method chosen by the user (pago_movil, transferencia, c2p, debito, punto)
+  paymentMethod: z.string().max(50).optional(),
   // Debt linking: if this payment is related to an existing debt
   debtId: z.string().max(255).optional(),
   debtPaidSoFar: z.coerce.number().safe().optional(),
@@ -221,7 +254,7 @@ export async function addTransactionAction(values: unknown) {
   }
 
   try {
-    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance, debtId, debtPaidSoFar } = parsed.data;
+    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance, accountName, paymentMethod, debtId, debtPaidSoFar } = parsed.data;
 
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
@@ -230,6 +263,12 @@ export async function addTransactionAction(values: unknown) {
     );
 
     const transactionAmount = Math.abs(amount);
+
+    // ─── Bank Commission (Banco de Venezuela / Banco Provincial) ─────────────
+    // Applies 0.3% ONLY when the payment method is Pago Móvil.
+    const commission = shouldChargeCommission(accountName, type, currency, paymentMethod)
+      ? parseFloat((transactionAmount * BANK_COMMISSION_RATE).toFixed(2))
+      : 0;
 
     const databaseId =
       type === 'income'
@@ -250,15 +289,29 @@ export async function addTransactionAction(values: unknown) {
     if (exchangeRate !== undefined && exchangeRate !== null) {
       notionProperties['Exchange Rate Used'] = { number: exchangeRate };
     }
+    // Persist the payment method used for this expense
+    if (type === 'expense' && paymentMethod) {
+      notionProperties['Payment Method'] = { select: { name: paymentMethod } };
+    }
+    // Persist the commission charged by the bank (0 when not applicable)
+    if (commission > 0) {
+      notionProperties['Comission'] = { number: commission };
+    }
 
     await addPageToDb(databaseId, notionProperties);
 
-    // Update account balance if an account was selected
-    if (accountId && accountBalance !== undefined) {
+    // Update account balance if an account was selected.
+    // Fetch consistent page details from Notion to prevent stale balance overwrites.
+    if (accountId) {
+      const rawAccount = await getPage(accountId);
+      const accountData = transformAccountData([rawAccount])[0];
+      const actualBalance = accountData?.balance ?? 0;
+
+      const totalDeduction = transactionAmount + commission;
       const newBalance =
         type === 'income'
-          ? accountBalance + transactionAmount
-          : accountBalance - transactionAmount;
+          ? actualBalance + transactionAmount
+          : actualBalance - totalDeduction;
       await updatePage(accountId, {
         'Balance Amount': { number: newBalance },
         'Last Transaction Date': { date: { start: date } },
@@ -266,14 +319,19 @@ export async function addTransactionAction(values: unknown) {
     }
 
     // Update debt's Amount Paid if this transaction is linked to a debt
-    if (debtId && debtPaidSoFar !== undefined) {
-      const newAmountPaid = debtPaidSoFar + transactionAmount;
+    // Fetch consistent page details from Notion to prevent stale paid-amount overwrites.
+    if (debtId) {
+      const rawDebt = await getPage(debtId);
+      const debtData = transformDebtData([rawDebt])[0];
+      const actualPaid = debtData?.paid ?? 0;
+
+      const newAmountPaid = actualPaid + transactionAmount;
       await updatePage(debtId, {
         'Amount Paid': { number: newAmountPaid },
       });
     }
 
-    return { success: true };
+    return { success: true, commission };
   } catch (error) {
     console.error('Failed to add transaction to Notion:', error);
     return { error: 'Failed to save transaction.' };
@@ -341,20 +399,26 @@ export async function addTransferAction(values: unknown) {
     await addPageToDb(databaseId, notionProperties);
 
     // Update From Account balance (Subtract sentAmount)
-    if (fromAccountBalance !== undefined) {
-      await updatePage(fromAccountId, {
-        'Balance Amount': { number: fromAccountBalance - sentAmount },
-        'Last Transaction Date': { date: { start: date } },
-      });
-    }
+    // Fetch consistent origin account page details from Notion.
+    const rawFromAccount = await getPage(fromAccountId);
+    const fromAccountData = transformAccountData([rawFromAccount])[0];
+    const actualFromBalance = fromAccountData?.balance ?? 0;
+
+    await updatePage(fromAccountId, {
+      'Balance Amount': { number: actualFromBalance - sentAmount },
+      'Last Transaction Date': { date: { start: date } },
+    });
 
     // Update To Account balance (Add receivedAmount)
-    if (toAccountBalance !== undefined) {
-      await updatePage(toAccountId, {
-        'Balance Amount': { number: toAccountBalance + receivedAmount },
-        'Last Transaction Date': { date: { start: date } },
-      });
-    }
+    // Fetch consistent destination account page details from Notion.
+    const rawToAccount = await getPage(toAccountId);
+    const toAccountData = transformAccountData([rawToAccount])[0];
+    const actualToBalance = toAccountData?.balance ?? 0;
+
+    await updatePage(toAccountId, {
+      'Balance Amount': { number: actualToBalance + receivedAmount },
+      'Last Transaction Date': { date: { start: date } },
+    });
 
     // Materialize FX Loss as an Expense
     if (fxLoss && fxLoss > 0) {
@@ -402,11 +466,13 @@ export async function getPendingDebtsAction() {
   try {
     const rawDebts = await getDebts(process.env.NOTION_DEBTS_DB!);
     const debts = transformDebtData(rawDebts);
-    // Only return pending debts of type "Debt" (i.e., money I owe)
+    // Only return entries that are strictly pending (status === 'Pendiente').
+    // 'Listo' debts are considered settled/waived and must never appear here,
+    // regardless of remaining balance — the user intentionally closed them.
+    // Both Debt (money I owe) and Debtor (money owed to me) are returned so
+    // the client can filter by transaction type (expense → Debt, income → Debtor).
     return {
-      debts: debts.filter(
-        (d: any) => d.type === 'Debt' && d.status !== 'Pagado' && d.status !== 'Paid'
-      ),
+      debts: debts.filter((d: any) => d.status === 'Pendiente'),
     };
   } catch (error) {
     console.error('Failed to fetch pending debts:', error);

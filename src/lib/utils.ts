@@ -114,6 +114,8 @@ export const transformTransactionData = (notionPages: any[]): any[] => {
       currency: getProperty(props.Currency) || 'USD',
       exchangeRate: getProperty(props['Exchange Rate Used']) ?? null,
       realUsdAmount,
+      /** Bank commission charged on this expense (Banco de Venezuela / Banco Provincial). Null if no commission was applied. */
+      commission: getProperty(props['Comission']) ?? null,
     };
   });
 };
