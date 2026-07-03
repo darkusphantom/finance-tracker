@@ -450,11 +450,13 @@ export async function getPendingDebtsAction() {
   try {
     const rawDebts = await getDebts(process.env.NOTION_DEBTS_DB!);
     const debts = transformDebtData(rawDebts);
-    // Only return pending debts of type "Debt" (i.e., money I owe)
+    // Only return entries that are strictly pending (status === 'Pendiente').
+    // 'Listo' debts are considered settled/waived and must never appear here,
+    // regardless of remaining balance — the user intentionally closed them.
+    // Both Debt (money I owe) and Debtor (money owed to me) are returned so
+    // the client can filter by transaction type (expense → Debt, income → Debtor).
     return {
-      debts: debts.filter(
-        (d: any) => d.type === 'Debt' && d.status !== 'Pagado' && d.status !== 'Paid'
-      ),
+      debts: debts.filter((d: any) => d.status === 'Pendiente'),
     };
   } catch (error) {
     console.error('Failed to fetch pending debts:', error);

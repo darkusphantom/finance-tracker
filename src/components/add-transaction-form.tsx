@@ -417,10 +417,19 @@ export function AddTransactionForm({
 
   const handleSelectDebt = (debt: any) => {
     setSelectedDebt(debt);
-    // Pre-fill description with debt name
-    form.setValue('description', `Pago deuda: ${debt.name}`, { shouldValidate: true });
-    if (form.getValues('category') === '') {
-      form.setValue('category', 'Debt Payment');
+    const currentType = form.getValues('type');
+    if (currentType === 'expense') {
+      // Paying off a debt I owe
+      form.setValue('description', `Pago deuda: ${debt.name}`, { shouldValidate: true });
+      if (form.getValues('category') === '') {
+        form.setValue('category', 'Debt Payment');
+      }
+    } else {
+      // Collecting from a debtor (income)
+      form.setValue('description', `Cobro deudor: ${debt.name}`, { shouldValidate: true });
+      if (form.getValues('category') === '') {
+        form.setValue('category', 'Loan');
+      }
     }
   };
 
@@ -766,7 +775,7 @@ export function AddTransactionForm({
             )}
           </div>
           <div className="space-y-4">
-            {/* Debt Payment Toggle */}
+            {/* Debt / Debtor Toggle — label and list vary by transaction type */}
             <div className="space-y-3">
               <Button
                 type="button"
@@ -780,43 +789,81 @@ export function AddTransactionForm({
                 ) : (
                   <CreditCard className="mr-2 h-4 w-4" />
                 )}
-                {isDebtPayment ? 'Desactivar pago de deuda' : 'Pagar deuda existente'}
+                {isDebtPayment
+                  ? transactionType === 'expense'
+                    ? 'Desactivar pago de deuda'
+                    : 'Desactivar cobro de deudor'
+                  : transactionType === 'expense'
+                    ? 'Pagar deuda existente'
+                    : 'Registrar cobro de deudor'}
               </Button>
 
               {isDebtPayment && (
                 <div className="rounded-md border p-3 space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Selecciona la deuda a pagar:</p>
-                  {pendingDebts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay deudas pendientes.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {pendingDebts.map(debt => {
-                        const remaining = debt.total - debt.paid;
-                        const isSelected = selectedDebt?.id === debt.id;
-                        return (
-                          <button
-                            key={debt.id}
-                            type="button"
-                            onClick={() => handleSelectDebt(debt)}
-                            className={`w-full text-left rounded-md border p-3 text-sm transition-colors ${isSelected
-                              ? 'border-primary bg-primary/10'
-                              : 'hover:bg-muted'
-                              }`}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium">{debt.name}</span>
-                              {isSelected && <X className="h-4 w-4 text-primary" onClick={(e) => { e.stopPropagation(); setSelectedDebt(null); }} />}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1 flex gap-3">
-                              <span>Total: <strong>{debt.total.toFixed(2)}</strong></span>
-                              <span>Pagado: <strong>{debt.paid.toFixed(2)}</strong></span>
-                              <span className="text-destructive">Resta: <strong>{remaining.toFixed(2)}</strong></span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {transactionType === 'expense'
+                      ? 'Selecciona la deuda a pagar:'
+                      : 'Selecciona el deudor a cobrar:'}
+                  </p>
+                  {(() => {
+                    /**
+                     * Filter by type AND remaining balance:
+                     * - expense → Debt entries (money I owe) with remaining > 0
+                     * - income  → Debtor entries (money owed to me) with remaining > 0
+                     */
+                    const relevantEntries = pendingDebts.filter(d =>
+                      (transactionType === 'expense' ? d.type === 'Debt' : d.type === 'Debtor') &&
+                      (d.total - d.paid) > 0
+                    );
+
+                    if (relevantEntries.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center gap-1 py-3 text-center">
+                          <span className="text-lg">{transactionType === 'expense' ? '🎉' : '📭'}</span>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {transactionType === 'expense'
+                              ? '¡No tienes deudas pendientes!'
+                              : 'No hay deudores pendientes.'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {transactionType === 'expense'
+                              ? 'No debes nada en este momento.'
+                              : 'Nadie te debe dinero en este momento.'}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {relevantEntries.map(debt => {
+                          const remaining = debt.total - debt.paid;
+                          const isSelected = selectedDebt?.id === debt.id;
+                          return (
+                            <button
+                              key={debt.id}
+                              type="button"
+                              onClick={() => handleSelectDebt(debt)}
+                              className={`w-full text-left rounded-md border p-3 text-sm transition-colors ${isSelected
+                                ? 'border-primary bg-primary/10'
+                                : 'hover:bg-muted'
+                                }`}
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">{debt.name}</span>
+                                {isSelected && <X className="h-4 w-4 text-primary" onClick={(e) => { e.stopPropagation(); setSelectedDebt(null); }} />}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1 flex gap-3">
+                                <span>Total: <strong>{debt.total.toFixed(2)}</strong></span>
+                                <span>Pagado: <strong>{debt.paid.toFixed(2)}</strong></span>
+                                <span className="text-destructive">Resta: <strong>{remaining.toFixed(2)}</strong></span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
