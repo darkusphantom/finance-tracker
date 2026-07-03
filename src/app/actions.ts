@@ -16,6 +16,7 @@ import {
   type AssessRiskProfileInput,
 } from '@/ai/flows/risk-profile-flow';
 import {
+  getPage,
   addPageToDb,
   deletePage,
   updatePage,
@@ -289,7 +290,7 @@ export async function addTransactionAction(values: unknown) {
       notionProperties['Exchange Rate Used'] = { number: exchangeRate };
     }
     // Persist the payment method used for this expense
-    if (paymentMethod) {
+    if (type === 'expense' && paymentMethod) {
       notionProperties['Payment Method'] = { select: { name: paymentMethod } };
     }
     // Persist the commission charged by the bank (0 when not applicable)
@@ -300,13 +301,17 @@ export async function addTransactionAction(values: unknown) {
     await addPageToDb(databaseId, notionProperties);
 
     // Update account balance if an account was selected.
-    // For commission-bearing banks, deduct amount + commission from the balance.
-    if (accountId && accountBalance !== undefined) {
+    // Fetch consistent page details from Notion to prevent stale balance overwrites.
+    if (accountId) {
+      const rawAccount = await getPage(accountId);
+      const accountData = transformAccountData([rawAccount])[0];
+      const actualBalance = accountData?.balance ?? 0;
+
       const totalDeduction = transactionAmount + commission;
       const newBalance =
         type === 'income'
-          ? accountBalance + transactionAmount
-          : accountBalance - totalDeduction;
+          ? actualBalance + transactionAmount
+          : actualBalance - totalDeduction;
       await updatePage(accountId, {
         'Balance Amount': { number: newBalance },
         'Last Transaction Date': { date: { start: date } },
@@ -314,8 +319,13 @@ export async function addTransactionAction(values: unknown) {
     }
 
     // Update debt's Amount Paid if this transaction is linked to a debt
-    if (debtId && debtPaidSoFar !== undefined) {
-      const newAmountPaid = debtPaidSoFar + transactionAmount;
+    // Fetch consistent page details from Notion to prevent stale paid-amount overwrites.
+    if (debtId) {
+      const rawDebt = await getPage(debtId);
+      const debtData = transformDebtData([rawDebt])[0];
+      const actualPaid = debtData?.paid ?? 0;
+
+      const newAmountPaid = actualPaid + transactionAmount;
       await updatePage(debtId, {
         'Amount Paid': { number: newAmountPaid },
       });
@@ -389,20 +399,26 @@ export async function addTransferAction(values: unknown) {
     await addPageToDb(databaseId, notionProperties);
 
     // Update From Account balance (Subtract sentAmount)
-    if (fromAccountBalance !== undefined) {
-      await updatePage(fromAccountId, {
-        'Balance Amount': { number: fromAccountBalance - sentAmount },
-        'Last Transaction Date': { date: { start: date } },
-      });
-    }
+    // Fetch consistent origin account page details from Notion.
+    const rawFromAccount = await getPage(fromAccountId);
+    const fromAccountData = transformAccountData([rawFromAccount])[0];
+    const actualFromBalance = fromAccountData?.balance ?? 0;
+
+    await updatePage(fromAccountId, {
+      'Balance Amount': { number: actualFromBalance - sentAmount },
+      'Last Transaction Date': { date: { start: date } },
+    });
 
     // Update To Account balance (Add receivedAmount)
-    if (toAccountBalance !== undefined) {
-      await updatePage(toAccountId, {
-        'Balance Amount': { number: toAccountBalance + receivedAmount },
-        'Last Transaction Date': { date: { start: date } },
-      });
-    }
+    // Fetch consistent destination account page details from Notion.
+    const rawToAccount = await getPage(toAccountId);
+    const toAccountData = transformAccountData([rawToAccount])[0];
+    const actualToBalance = toAccountData?.balance ?? 0;
+
+    await updatePage(toAccountId, {
+      'Balance Amount': { number: actualToBalance + receivedAmount },
+      'Last Transaction Date': { date: { start: date } },
+    });
 
     // Materialize FX Loss as an Expense
     if (fxLoss && fxLoss > 0) {

@@ -273,6 +273,38 @@ export function AddTransactionForm({
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+
+      // Optimistically update local activeAccounts state to prevent stale data between submissions
+      if (values.accountId) {
+        const amountValue = Math.abs(values.amount);
+        const totalDeduction = amountValue + (typeof commissionCharged === 'number' ? commissionCharged : 0);
+        setActiveAccounts((prev) =>
+          prev.map((acc) => {
+            if (acc.id === values.accountId) {
+              const newBalance =
+                values.type === 'income'
+                  ? acc.balance + amountValue
+                  : acc.balance - totalDeduction;
+              return { ...acc, balance: newBalance };
+            }
+            return acc;
+          })
+        );
+      }
+
+      // Optimistically update local pendingDebts state to prevent stale data
+      if (selectedDebt) {
+        const amountValue = Math.abs(values.amount);
+        setPendingDebts((prev) =>
+          prev.map((d) => {
+            if (d.id === selectedDebt.id) {
+              return { ...d, paid: d.paid + amountValue };
+            }
+            return d;
+          })
+        );
+      }
+
       // Refresh accounts so the balance is up to date for the next transaction
       refreshAccounts();
       setShowContinueDialog(true);
@@ -436,17 +468,22 @@ export function AddTransactionForm({
   const handleContinueDialogAction = (addAnother: boolean) => {
     setShowContinueDialog(false);
     if (addAnother) {
+      const currentExchangeRate = form.getValues('exchangeRate');
+      const currentCurrency = form.getValues('currency');
+      const currentAccountId = form.getValues('accountId');
+      const currentType = form.getValues('type');
+
       setSelectedDebt(null);
       setIsDebtPayment(false);
       form.reset({
         description: '',
         amount: 0,
-        type: 'expense',
+        type: currentType,
         category: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        currency: 'VES',
-        exchangeRate: undefined,
-        accountId: undefined,
+        currency: currentCurrency,
+        exchangeRate: currentExchangeRate,
+        accountId: currentAccountId,
         paymentMethod: undefined,
       });
     } else {
