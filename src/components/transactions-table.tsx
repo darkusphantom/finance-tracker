@@ -310,6 +310,22 @@ function EditTransactionModal({
               </div>
             </div>
           )}
+
+          {/* Bank Commission — read-only, shown only when a commission was charged */}
+          {form.commission != null && Number(form.commission) > 0 && (
+            <div className="grid gap-1.5">
+              <Label className="flex items-center gap-1.5">
+                <span>Comisión bancaria</span>
+                <span className="text-xs font-normal text-muted-foreground">(0.3% — solo lectura)</span>
+              </Label>
+              <div className="flex items-center justify-between h-9 px-3 rounded-md border border-yellow-500/40 bg-yellow-500/10 text-sm font-mono text-yellow-700 dark:text-yellow-400">
+                <span>{Number(form.commission).toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES</span>
+                <span className="text-xs font-sans text-muted-foreground">
+                  Total descontado: {(Number(form.amount) + Number(form.commission)).toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

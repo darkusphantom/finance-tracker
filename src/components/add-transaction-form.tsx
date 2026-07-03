@@ -39,8 +39,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
-import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2, CreditCard, X } from 'lucide-react';
+import { CalendarIcon, Sparkles, Loader2, Camera, CalculatorIcon, Trash2, CreditCard, X, Info } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import {
   suggestCategoryAction,
@@ -96,6 +102,15 @@ const incomeCategories = [
 ];
 
 
+/** Payment method options for bank accounts that may charge commissions. */
+const PAYMENT_METHODS = [
+  { value: 'pago_movil', label: '📱 Pago Móvil' },
+  { value: 'transferencia', label: '🏦 Transferencia' },
+  { value: 'c2p', label: '🔁 C2P' },
+  { value: 'debito', label: '💳 Pago Débito' },
+  { value: 'punto', label: '🖥️ Por Punto' },
+] as const;
+
 const formSchema = z.object({
   description: z.string().min(2, {
     message: 'Description must be at least 2 characters.',
@@ -109,6 +124,8 @@ const formSchema = z.object({
   currency: z.string().optional(),
   exchangeRate: z.coerce.number().optional(),
   accountId: z.string().optional(),
+  /** Payment method — required when the account belongs to a commission-bearing bank. */
+  paymentMethod: z.string().optional(),
 });
 
 type ScannedTransaction = Extract<ExtractTransactionFromImageOutput['transactions'], Array<any>>[number] & { id: string, category?: string };
@@ -147,6 +164,7 @@ export function AddTransactionForm({
       currency: 'VES',
       exchangeRate: 0,
       accountId: undefined,
+      paymentMethod: undefined,
     },
   });
 
@@ -170,6 +188,18 @@ export function AddTransactionForm({
     name: 'currency',
   });
 
+  /** Tracks the selected accountId to derive commission preview. */
+  const selectedAccountId = useWatch({
+    control: form.control,
+    name: 'accountId',
+  });
+
+  /** Tracks the payment method chosen by the user. */
+  const selectedPaymentMethod = useWatch({
+    control: form.control,
+    name: 'paymentMethod',
+  });
+
   const { rates } = useExchangeRates();
 
   useEffect(() => {
@@ -186,28 +216,59 @@ export function AddTransactionForm({
 
   const filteredAccounts = activeAccounts.filter(account => account.currency === selectedCurrency);
 
+  /** The full account object currently selected in the form. */
+  const selectedAccount = activeAccounts.find(a => a.id === selectedAccountId);
+
+  /**
+   * True when the selected account belongs to a bank that charges commissions
+   * (BDV or Provincial) on a VES expense — regardless of payment method.
+   * Used to conditionally render the payment method selector.
+   */
+  const isCommissionBank =
+    transactionType === 'expense' &&
+    selectedCurrency === 'VES' &&
+    !!selectedAccount &&
+    ['venezuela', 'provincial'].some((bank) =>
+      selectedAccount.name?.toLowerCase().includes(bank)
+    );
+
+  /**
+   * Commission preview — 0.3% applied ONLY when the payment method is Pago Móvil.
+   */
+  const COMMISSION_RATE = 0.003;
+  const isCommissionApplicable = isCommissionBank && selectedPaymentMethod === 'pago_movil';
+  const currentAmount = form.watch('amount') || 0;
+  const commissionPreview = isCommissionApplicable
+    ? parseFloat((Math.abs(currentAmount) * COMMISSION_RATE).toFixed(2))
+    : 0;
+
   const categories = transactionType === 'income' ? incomeCategories : expenseCategories;
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
 
-    // Find the selected account's current balance to pass to the action
-    const selectedAccount = activeAccounts.find(a => a.id === values.accountId);
+    // Find the selected account's data to pass balance and name to the action
+    const accountForSubmit = activeAccounts.find(a => a.id === values.accountId);
     const result = await addTransactionAction({
       ...values,
-      accountBalance: selectedAccount?.balance,
+      accountBalance: accountForSubmit?.balance,
+      // Pass the account name so the server action can determine commission eligibility
+      accountName: accountForSubmit?.name,
       // Debt linking
       debtId: selectedDebt?.id,
       debtPaidSoFar: selectedDebt?.paid,
     });
 
     if (result.success) {
+      const commissionCharged = 'commission' in result ? result.commission : 0;
       toast({
         title: 'Transaction Added',
         description: selectedDebt
           ? `Transaction added and debt "${selectedDebt.name}" updated.`
-          : `Your transaction has been added.`,
+          : commissionCharged && commissionCharged > 0
+            ? `Transacción guardada. Comisión bancaria aplicada: ${commissionCharged.toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES`
+            : `Your transaction has been added.`,
       });
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -377,6 +438,7 @@ export function AddTransactionForm({
         currency: 'VES',
         exchangeRate: undefined,
         accountId: undefined,
+        paymentMethod: undefined,
       });
     } else {
       afterSubmit?.();
@@ -501,6 +563,7 @@ export function AddTransactionForm({
                 <FormItem>
                   <div className="flex justify-between items-center">
                     <FormLabel>Category</FormLabel>
+                    {/*
                     <Button
                       type="button"
                       variant="outline"
@@ -515,6 +578,7 @@ export function AddTransactionForm({
                       )}
                       Suggest
                     </Button>
+                    */}
                   </div>
                   <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                     <FormControl>
@@ -638,6 +702,68 @@ export function AddTransactionForm({
                 </FormItem>
               )}
             />
+
+            {/* Payment method selector — shown only for commission-bearing bank accounts on VES expenses */}
+            {isCommissionBank && (
+              <FormField
+                control={form.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>Método de pago</FormLabel>
+
+                      {/* Commission tooltip — visible only when Pago Móvil is selected and amount is entered */}
+                      {isCommissionApplicable && commissionPreview > 0 && (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-medium text-yellow-600 dark:text-yellow-400 cursor-default select-none">
+                                <Info className="h-3 w-3" />
+                                +{commissionPreview.toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-[220px] space-y-1 text-xs">
+                              <p className="font-semibold text-yellow-500">⚠️ Comisión bancaria (0.3%)</p>
+                              <p>
+                                Comisión:{' '}
+                                <span className="font-mono font-bold">
+                                  {commissionPreview.toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES
+                                </span>
+                              </p>
+                              <p className="border-t border-border pt-1">
+                                Total descontado:{' '}
+                                <span className="font-mono font-bold">
+                                  {(Math.abs(currentAmount) + commissionPreview).toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES
+                                </span>
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? ''}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona el método de pago" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PAYMENT_METHODS.map((method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </div>
           <div className="space-y-4">
             {/* Debt Payment Toggle */}

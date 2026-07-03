@@ -1,0 +1,6 @@
+allowBuilds:
+  '@firebase/util': false
+  bcrypt: false
+  esbuild: false
+  protobufjs: false
+  sharp: false

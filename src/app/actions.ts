@@ -194,6 +194,34 @@ export async function extractTransactionAction(
   }
 }
 
+/** Commission rate applied by Banco de Venezuela and Banco Provincial exclusively on Pago Móvil transactions. */
+const BANK_COMMISSION_RATE = 0.003;
+
+/** Banks that charge a commission on VES Pago Móvil expenses. Matching is case-insensitive substring. */
+const COMMISSION_BANKS = ['venezuela', 'provincial'] as const;
+
+/**
+ * Determines whether a bank commission (0.3%) should be charged.
+ * Commission applies **only** when the payment method is 'pago_movil' on a
+ * VES expense from Banco de Venezuela or Banco Provincial.
+ *
+ * @param accountName - Name of the selected account.
+ * @param type - Transaction type ('income' | 'expense').
+ * @param currency - Transaction currency (must be 'VES').
+ * @param paymentMethod - Payment method chosen by the user.
+ */
+const shouldChargeCommission = (
+  accountName: string | undefined,
+  type: string,
+  currency: string | undefined,
+  paymentMethod: string | undefined
+): boolean => {
+  if (type !== 'expense' || currency !== 'VES' || !accountName) return false;
+  if (paymentMethod !== 'pago_movil') return false;
+  const lower = accountName.toLowerCase();
+  return COMMISSION_BANKS.some((bank) => lower.includes(bank));
+};
+
 const addTransactionSchema = z.object({
   description: z.string().min(2).max(1000),
   amount: z.coerce.number().safe(),
@@ -207,6 +235,10 @@ const addTransactionSchema = z.object({
   // Account to update after the transaction is recorded
   accountId: z.string().max(255).optional(),
   accountBalance: z.coerce.number().safe().optional(),
+  // Name of the selected account (used for commission logic)
+  accountName: z.string().max(255).optional(),
+  // Payment method chosen by the user (pago_movil, transferencia, c2p, debito, punto)
+  paymentMethod: z.string().max(50).optional(),
   // Debt linking: if this payment is related to an existing debt
   debtId: z.string().max(255).optional(),
   debtPaidSoFar: z.coerce.number().safe().optional(),
@@ -221,7 +253,7 @@ export async function addTransactionAction(values: unknown) {
   }
 
   try {
-    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance, debtId, debtPaidSoFar } = parsed.data;
+    const { description, amount, category, date, type, currency, exchangeRate, accountId, accountBalance, accountName, paymentMethod, debtId, debtPaidSoFar } = parsed.data;
 
     const monthName = format(new Date(date), 'MMMM yyyy');
     const monthPageId = await findOrCreateMonthPage(
@@ -230,6 +262,12 @@ export async function addTransactionAction(values: unknown) {
     );
 
     const transactionAmount = Math.abs(amount);
+
+    // ─── Bank Commission (Banco de Venezuela / Banco Provincial) ─────────────
+    // Applies 0.3% ONLY when the payment method is Pago Móvil.
+    const commission = shouldChargeCommission(accountName, type, currency, paymentMethod)
+      ? parseFloat((transactionAmount * BANK_COMMISSION_RATE).toFixed(2))
+      : 0;
 
     const databaseId =
       type === 'income'
@@ -250,15 +288,25 @@ export async function addTransactionAction(values: unknown) {
     if (exchangeRate !== undefined && exchangeRate !== null) {
       notionProperties['Exchange Rate Used'] = { number: exchangeRate };
     }
+    // Persist the payment method used for this expense
+    if (paymentMethod) {
+      notionProperties['Payment Method'] = { select: { name: paymentMethod } };
+    }
+    // Persist the commission charged by the bank (0 when not applicable)
+    if (commission > 0) {
+      notionProperties['Comission'] = { number: commission };
+    }
 
     await addPageToDb(databaseId, notionProperties);
 
-    // Update account balance if an account was selected
+    // Update account balance if an account was selected.
+    // For commission-bearing banks, deduct amount + commission from the balance.
     if (accountId && accountBalance !== undefined) {
+      const totalDeduction = transactionAmount + commission;
       const newBalance =
         type === 'income'
           ? accountBalance + transactionAmount
-          : accountBalance - transactionAmount;
+          : accountBalance - totalDeduction;
       await updatePage(accountId, {
         'Balance Amount': { number: newBalance },
         'Last Transaction Date': { date: { start: date } },
@@ -273,7 +321,7 @@ export async function addTransactionAction(values: unknown) {
       });
     }
 
-    return { success: true };
+    return { success: true, commission };
   } catch (error) {
     console.error('Failed to add transaction to Notion:', error);
     return { error: 'Failed to save transaction.' };
