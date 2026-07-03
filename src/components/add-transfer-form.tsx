@@ -22,7 +22,13 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Loader2, AlertTriangle, Info } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useExchangeRates } from '@/hooks/use-exchange-rates';
 import {
@@ -39,7 +45,9 @@ const formSchema = z.object({
   date: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format",
   }),
+  fromCurrency: z.string().min(1, 'Source currency is required'),
   fromAccountId: z.string().min(1, 'Source account is required'),
+  toCurrency: z.string().min(1, 'Destination currency is required'),
   toAccountId: z.string().min(1, 'Destination account is required'),
   sentAmount: z.coerce.number().positive('Amount must be positive'),
   receivedAmount: z.coerce.number().positive('Amount must be positive'),
@@ -52,6 +60,16 @@ const formSchema = z.object({
   path: ["toAccountId"]
 });
 
+/** All supported transfer currencies. */
+const ALL_CURRENCIES = ['VES', 'USD', 'USDT'] as const;
+
+/** Display labels for each transfer currency. */
+const CURRENCY_LABELS: Record<string, string> = {
+  VES: '🇻🇪 VES',
+  USD: '🇺🇸 USD',
+  USDT: '🪙 USDT',
+};
+
 export function AddTransferForm({
   afterSubmit,
 }: {
@@ -63,13 +81,18 @@ export function AddTransferForm({
   const router = useRouter();
   const { rates } = useExchangeRates();
 
+  /** BCV official rate for the current day (sourced from DolarAPI). */
+  const bcvRate = rates.find((r) => r.fuente === 'oficial')?.promedio ?? null;
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       description: '',
       type: 'Cambio Divisa',
       date: format(new Date(), 'yyyy-MM-dd'),
+      fromCurrency: 'VES',
       fromAccountId: '',
+      toCurrency: 'USD',
       toAccountId: '',
       sentAmount: 0,
       receivedAmount: 0,
@@ -110,6 +133,87 @@ export function AddTransferForm({
     name: 'receivedAmount',
   });
 
+  /** Selected currency for the origin side. */
+  const fromCurrency = useWatch({
+    control: form.control,
+    name: 'fromCurrency',
+  });
+
+  /** Selected currency for the destination side. */
+  const toCurrency = useWatch({
+    control: form.control,
+    name: 'toCurrency',
+  });
+
+  /** Watched origin account ID — needed for commission preview. */
+  const watchedFromAccountId = useWatch({
+    control: form.control,
+    name: 'fromAccountId',
+  });
+
+  /** Watched destination account ID — needed for commission preview. */
+  const watchedToAccountId = useWatch({
+    control: form.control,
+    name: 'toAccountId',
+  });
+
+  const isTransferencia = transactionType === 'Transferencia';
+
+  /**
+   * For Cambio Divisa: destination can be any currency except origin.
+   * For Transferencia: destination is locked to the same currency as origin.
+   */
+  const availableToCurrencies = isTransferencia
+    ? [fromCurrency].filter(Boolean)
+    : ALL_CURRENCIES.filter(c => c !== fromCurrency);
+
+  /** Origin accounts filtered by the selected fromCurrency. */
+  const filteredFromAccounts = activeAccounts.filter(a => a.currency === fromCurrency);
+
+  /**
+   * Destination accounts filtered by the relevant currency.
+   * For Transferencia: same currency, excluding the selected origin account.
+   * For Cambio Divisa: filtered by toCurrency (different currency).
+   */
+  const filteredToAccounts = isTransferencia
+    ? activeAccounts.filter(a => a.currency === fromCurrency && a.id !== watchedFromAccountId)
+    : activeAccounts.filter(a => a.currency === toCurrency);
+
+  // ─── Commission preview for Transferencia ───────────────────────────────────
+  /** Banks whose inter-bank transfers trigger a 0.3% commission. */
+  const COMMISSION_BANKS_TRANSFER = ['venezuela', 'provincial'] as const;
+  const TRANSFER_COMMISSION_RATE = 0.003;
+
+  const fromAccountObj = activeAccounts.find(a => a.id === watchedFromAccountId);
+  const toAccountObj   = activeAccounts.find(a => a.id === watchedToAccountId);
+
+  /**
+   * Determines which commission-bank keyword the account belongs to, if any.
+   * Returns 'venezuela', 'provincial', or null.
+   */
+  const getBankKey = (account: any): string | null => {
+    if (!account?.name) return null;
+    const lower = account.name.toLowerCase();
+    return COMMISSION_BANKS_TRANSFER.find(b => lower.includes(b)) ?? null;
+  };
+
+  const fromBankKey = getBankKey(fromAccountObj);
+  const toBankKey   = getBankKey(toAccountObj);
+
+  /**
+   * Commission applies on Transferencia when:
+   * 1. The origin account belongs to a commission bank (Venezuela / Provincial).
+   * 2. The destination account is a DIFFERENT bank institution.
+   */
+  const isInterBankTransfer =
+    isTransferencia &&
+    fromBankKey !== null &&
+    toBankKey !== fromBankKey;
+
+  const transferCommission = isInterBankTransfer && sentAmount > 0
+    ? parseFloat((sentAmount * TRANSFER_COMMISSION_RATE).toFixed(2))
+    : 0;
+
   const fxLoss = (transactionType === 'Cambio Divisa' && baseRate && sentAmount && receivedAmount && baseRate > 0) 
     ? (sentAmount / baseRate) - receivedAmount 
     : 0;
@@ -134,7 +238,7 @@ export function AddTransferForm({
 
     const fromAccount = activeAccounts.find(a => a.id === values.fromAccountId);
     const toAccount = activeAccounts.find(a => a.id === values.toAccountId);
-    const toCurrency = toAccount?.currency || 'USD';
+    const toAccountCurrencyValue = toAccount?.currency || 'USD';
 
     // Obtenemos la tasa oficial del día de DolarAPI (o fallback al referenceRate)
     const officialRateObj = rates.find((r: any) => r.fuente === 'oficial');
@@ -145,7 +249,7 @@ export function AddTransferForm({
       fxLoss: isLoss ? parseFloat(fxLoss.toFixed(2)) : 0,
       fromAccountBalance: fromAccount?.balance,
       toAccountBalance: toAccount?.balance,
-      toAccountCurrency: toCurrency,
+      toAccountCurrency: toAccountCurrencyValue,
       officialRate: officialRate,
     });
 
@@ -177,7 +281,24 @@ export function AddTransferForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  // When switching to Transferencia, lock toCurrency = fromCurrency
+                  if (value === 'Transferencia') {
+                    const currentFromCurrency = form.getValues('fromCurrency');
+                    form.setValue('toCurrency', currentFromCurrency);
+                    form.setValue('toAccountId', '');
+                  } else {
+                    // Switching back to Cambio Divisa — pick first available foreign currency
+                    const currentFromCurrency = form.getValues('fromCurrency');
+                    const nextTo = ALL_CURRENCIES.find(c => c !== currentFromCurrency);
+                    form.setValue('toCurrency', nextTo ?? '');
+                    form.setValue('toAccountId', '');
+                  }
+                }}
+                defaultValue={field.value}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
@@ -226,23 +347,44 @@ export function AddTransferForm({
         />
 
         <div className="grid grid-cols-2 gap-4 border-t pt-4">
+
+          {/* ── Step 1-3: Origin ── */}
           <div className="space-y-4">
             <h3 className="font-semibold text-sm">From (Origin)</h3>
+
+            {/* Step 1: Origin currency */}
             <FormField
               control={form.control}
-              name="fromAccountId"
+              name="fromCurrency"
               render={({ field }) => (
                 <FormItem>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <FormLabel>Currency</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Reset origin account when currency changes
+                      form.setValue('fromAccountId', '');
+                      form.setValue('toAccountId', '');
+                      if (isTransferencia) {
+                        // In Transferencia mode, toCurrency always mirrors fromCurrency
+                        form.setValue('toCurrency', value);
+                      } else if (form.getValues('toCurrency') === value) {
+                        // In Cambio Divisa: avoid same currency on both sides
+                        const next = ALL_CURRENCIES.find(c => c !== value);
+                        form.setValue('toCurrency', next ?? '');
+                      }
+                    }}
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select origin" />
+                        <SelectValue placeholder="Select currency" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {activeAccounts.map(account => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name} ({account.currency})
+                      {ALL_CURRENCIES.map(c => (
+                        <SelectItem key={c} value={c}>
+                          {CURRENCY_LABELS[c]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -251,6 +393,51 @@ export function AddTransferForm({
                 </FormItem>
               )}
             />
+
+            {/* Step 2: Origin account (filtered by fromCurrency) */}
+            <FormField
+              control={form.control}
+              name="fromAccountId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Account
+                    {filteredFromAccounts.length === 0 && fromCurrency && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (no {fromCurrency} accounts)
+                      </span>
+                    )}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={filteredFromAccounts.length === 0}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select origin account" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {filteredFromAccounts.map(account => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <span className="font-medium">{account.name}</span>
+                          <span className="ml-2 text-muted-foreground font-mono text-xs">
+                            {new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: account.currency === 'USDT' ? 'USD' : account.currency,
+                            }).format(account.balance)}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Step 3: Amount sent */}
             <FormField
               control={form.control}
               name="sentAmount"
@@ -266,23 +453,87 @@ export function AddTransferForm({
             />
           </div>
 
+          {/* ── Step 4-6: Destination ── */}
           <div className="space-y-4">
             <h3 className="font-semibold text-sm">To (Destination)</h3>
+
+            {/* Step 4: Destination currency */}
+            {isTransferencia ? (
+              /* For Transferencia: currency is locked to origin — show an informational badge */
+              <div className="space-y-2">
+                <p className="text-sm font-medium leading-none">Currency</p>
+                <div className="flex items-center gap-2 rounded-md border bg-muted/60 px-3 py-2">
+                  <span className="text-sm font-medium">{CURRENCY_LABELS[fromCurrency] ?? fromCurrency}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">Auto (igual que origen)</span>
+                </div>
+              </div>
+            ) : (
+              <FormField
+                control={form.control}
+                name="toCurrency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('toAccountId', '');
+                      }}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableToCurrencies.map(c => (
+                          <SelectItem key={c} value={c}>
+                            {CURRENCY_LABELS[c]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* Step 5: Destination account (filtered by toCurrency) */}
             <FormField
               control={form.control}
               name="toAccountId"
               render={({ field }) => (
                 <FormItem>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <FormLabel>
+                    Account
+                    {filteredToAccounts.length === 0 && toCurrency && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (no {toCurrency} accounts)
+                      </span>
+                    )}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={filteredToAccounts.length === 0}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select destination" />
+                        <SelectValue placeholder="Select destination account" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {activeAccounts.map(account => (
+                      {filteredToAccounts.map(account => (
                         <SelectItem key={account.id} value={account.id}>
-                          {account.name} ({account.currency})
+                          <span className="font-medium">{account.name}</span>
+                          <span className="ml-2 text-muted-foreground font-mono text-xs">
+                            {new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: account.currency === 'USDT' ? 'USD' : account.currency,
+                            }).format(account.balance)}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -291,6 +542,8 @@ export function AddTransferForm({
                 </FormItem>
               )}
             />
+
+            {/* Step 6: Amount received */}
             <FormField
               control={form.control}
               name="receivedAmount"
@@ -307,14 +560,58 @@ export function AddTransferForm({
           </div>
         </div>
 
+        {/* ── Commission preview for inter-bank Transferencia ── */}
+        {isInterBankTransfer && transferCommission > 0 && (
+          <Alert className="border-yellow-500/40 bg-yellow-500/10">
+            <Info className="h-4 w-4 text-yellow-500" />
+            <AlertTitle className="text-yellow-600 dark:text-yellow-400">Comisión Bancaria Aplicable</AlertTitle>
+            <AlertDescription className="text-xs space-y-1">
+              <p>
+                Esta transferencia entre <strong>{fromAccountObj?.name}</strong> y <strong>{toAccountObj?.name}</strong> genera una comisión interbancaria del <strong>0.3%</strong>.
+              </p>
+              <p className="font-mono font-semibold">
+                Comisión estimada:{' '}
+                <span className="text-yellow-600 dark:text-yellow-400">
+                  {transferCommission.toLocaleString('es-VE', { minimumFractionDigits: 2 })} {fromCurrency}
+                </span>
+              </p>
+              <p className="text-muted-foreground">
+                Total a descontar:{' '}
+                <span className="font-medium">
+                  {(sentAmount + transferCommission).toLocaleString('es-VE', { minimumFractionDigits: 2 })} {fromCurrency}
+                </span>
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {transactionType === 'Cambio Divisa' && (
           <div className="grid grid-cols-2 gap-4 border-t pt-4 bg-muted/50 p-3 rounded-md">
+            {/* ── Rate Source ── */}
             <FormField
               control={form.control}
               name="rateSource"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Rate Source</FormLabel>
+                  <div className="flex items-center gap-1.5">
+                    <FormLabel>Rate Source</FormLabel>
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-default" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[240px] space-y-1 text-xs">
+                          <p className="font-semibold">¿Qué tasa se usó para el cambio?</p>
+                          <ul className="space-y-0.5 list-disc list-inside text-muted-foreground">
+                            <li><span className="font-medium text-foreground">BCV</span> — Tasa oficial del Banco Central de Venezuela.</li>
+                            <li><span className="font-medium text-foreground">Paralelo</span> — Tasa del mercado paralelo/negro.</li>
+                            <li><span className="font-medium text-foreground">Binance</span> — Tasa del par USDT/VES en Binance P2P.</li>
+                            <li><span className="font-medium text-foreground">Custom</span> — Tasa acordada manualmente.</li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -332,12 +629,32 @@ export function AddTransferForm({
                 </FormItem>
               )}
             />
+
+            {/* ── Reference Rate ── */}
             <FormField
               control={form.control}
               name="referenceRate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Reference Rate (Binance)</FormLabel>
+                  <div className="flex items-center gap-1.5">
+                    <FormLabel>Reference Rate</FormLabel>
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-default" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[240px] space-y-1 text-xs">
+                          <p className="font-semibold">Tasa de referencia usada para el cambio</p>
+                          <p className="text-muted-foreground">
+                            Coloca la tasa exacta a la que se ejecutó la operación (ej. precio del USDT/VES en Binance P2P al momento de la compra).
+                          </p>
+                          <p className="text-muted-foreground">
+                            Esta tasa se usará para calcular la pérdida cambiaria respecto a la <span className="font-medium text-foreground">Base Rate</span>.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} value={field.value || ''} />
                   </FormControl>
@@ -345,14 +662,42 @@ export function AddTransferForm({
                 </FormItem>
               )}
             />
+
+            {/* ── Base Rate ── */}
             <FormField
               control={form.control}
               name="baseRate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Base Rate (Opcional - Adquisición)</FormLabel>
+                  <div className="flex items-center gap-1.5">
+                    <FormLabel>Base Rate</FormLabel>
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-default" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[260px] space-y-1.5 text-xs">
+                          <p className="font-semibold">Tasa de adquisición original</p>
+                          <p className="text-muted-foreground">
+                            Es la tasa a la que originalmente adquiriste los fondos que estás cambiando. Se compara contra la <span className="font-medium text-foreground">Reference Rate</span> para calcular si hubo pérdida cambiaria.
+                          </p>
+                          <p className="text-muted-foreground">
+                            Ejemplo: si compraste USDT cuando el BCV estaba a <span className="font-medium text-foreground">515 Bs</span>, coloca <span className="font-mono font-bold">515</span>.
+                          </p>
+                          {bcvRate !== null && (
+                            <p className="border-t border-border pt-1 font-medium">
+                              💱 BCV hoy:{' '}
+                              <span className="font-mono text-green-500">
+                                {bcvRate.toLocaleString('es-VE', { minimumFractionDigits: 2 })} Bs/$
+                              </span>
+                            </p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <FormControl>
-                    <Input type="number" step="0.01" {...field} value={field.value || ''} placeholder="Ej. 515" />
+                    <Input type="number" step="0.01" {...field} value={field.value || ''} placeholder={bcvRate ? String(bcvRate.toFixed(2)) : 'Ej. 515'} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
