@@ -283,6 +283,10 @@ export async function addTransactionAction(values: unknown) {
       Month: { relation: [{ id: monthPageId }] },
     };
 
+    if (accountId) {
+      notionProperties['Account'] = { relation: [{ id: accountId }] };
+    }
+
     if (currency) {
       notionProperties['Currency'] = { select: { name: currency } };
     }
@@ -529,9 +533,42 @@ export async function updateTransactionAction(values: unknown) {
   }
 }
 
-export async function deleteTransactionAction(id: string) {
+export async function deleteTransactionAction(id: string, type?: 'income' | 'expense') {
   await requireAuth();
   try {
+    const rawTransaction = (await getPage(id)) as any;
+    const props = rawTransaction.properties;
+    
+    const amount = props.Amount?.number || 0;
+    const commission = props.Comission?.number || 0;
+    const accountId = props.Account?.relation?.[0]?.id || null;
+
+    if (accountId) {
+      const rawAccount = await getPage(accountId);
+      const accountData = transformAccountData([rawAccount])[0];
+      const actualBalance = accountData?.balance ?? 0;
+
+      const totalDeduction = amount + commission;
+      
+      let txType = type;
+      if (!txType) {
+         const dbId = rawTransaction.parent?.database_id?.replace(/-/g, '');
+         const incomeDbId = process.env.NOTION_INCOME_DB?.replace(/-/g, '');
+         txType = (dbId === incomeDbId) ? 'income' : 'expense';
+      }
+
+      // Revert the transaction effect:
+      // If it was income, subtract it from the balance.
+      // If it was expense, add the total deduction back to the balance.
+      const newBalance = txType === 'income' 
+        ? actualBalance - amount 
+        : actualBalance + totalDeduction;
+
+      await updatePage(accountId, {
+        'Balance Amount': { number: newBalance },
+      });
+    }
+
     await deletePage(id);
     return { success: true };
   } catch (error) {

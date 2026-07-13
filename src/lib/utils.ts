@@ -116,6 +116,7 @@ export const transformTransactionData = (notionPages: any[]): any[] => {
       realUsdAmount,
       /** Bank commission charged on this expense (Banco de Venezuela / Banco Provincial). Null if no commission was applied. */
       commission: getProperty(props['Comission']) ?? null,
+      accountId: props.Account?.relation?.[0]?.id || null,
     };
   });
 };
