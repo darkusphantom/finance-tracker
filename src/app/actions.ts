@@ -577,6 +577,47 @@ export async function deleteTransactionAction(id: string, type?: 'income' | 'exp
   }
 }
 
+export async function deleteTransferAction(id: string) {
+  await requireAuth();
+  try {
+    const rawTransfer = (await getPage(id)) as any;
+    const props = rawTransfer.properties;
+
+    const fromAccountId = props['From Account']?.relation?.[0]?.id || null;
+    const toAccountId = props['To Account']?.relation?.[0]?.id || null;
+    const sentAmount = props['Sent Amount']?.number || 0;
+    const receivedAmount = props['Received Amount']?.number || 0;
+
+    // Revert From Account: Add sentAmount back
+    if (fromAccountId) {
+      const rawFromAccount = await getPage(fromAccountId);
+      const fromAccountData = transformAccountData([rawFromAccount])[0];
+      const actualFromBalance = fromAccountData?.balance ?? 0;
+
+      await updatePage(fromAccountId, {
+        'Balance Amount': { number: actualFromBalance + sentAmount },
+      });
+    }
+
+    // Revert To Account: Subtract receivedAmount
+    if (toAccountId) {
+      const rawToAccount = await getPage(toAccountId);
+      const toAccountData = transformAccountData([rawToAccount])[0];
+      const actualToBalance = toAccountData?.balance ?? 0;
+
+      await updatePage(toAccountId, {
+        'Balance Amount': { number: actualToBalance - receivedAmount },
+      });
+    }
+
+    await deletePage(id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to delete transfer in Notion:', error);
+    return { error: 'Failed to delete transfer.' };
+  }
+}
+
 export async function addAccountAction() {
   await requireAuth();
   try {

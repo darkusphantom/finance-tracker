@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   updateTransactionAction,
   deleteTransactionAction,
+  deleteTransferAction,
 } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import {
@@ -422,7 +423,12 @@ export function TransactionsTable({
     const target = transactions.find(t => t.id === id);
     setTransactions(prev => prev.filter(t => t.id !== id));
 
-    const result = await deleteTransactionAction(id, target?.type);
+    let result = null;
+    if (target?.type === 'Transferencia' || target?.type === 'Cambio Divisa') {
+      result = await deleteTransferAction(id);
+    } else {
+      result = await deleteTransactionAction(id, target?.type);
+    }
 
     if (result?.error) {
       toast({ title: 'Revert Failed', description: result.error, variant: 'destructive' });
@@ -527,9 +533,8 @@ export function TransactionsTable({
 
                       {/* Amount */}
                       <TableCell
-                        className={`font-mono text-sm font-semibold whitespace-nowrap ${
-                          transaction.type === 'income' ? 'text-primary' : 'text-destructive'
-                        }`}
+                        className={`font-mono text-sm font-semibold whitespace-nowrap ${transaction.type === 'income' ? 'text-primary' : 'text-destructive'
+                          }`}
                       >
                         {transaction.type === 'income' ? '+' : '-'}
                         {Number(transaction.amount).toLocaleString()}
