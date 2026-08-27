@@ -30,6 +30,7 @@ import {
   setDate as setDateOfMonth,
 } from 'date-fns';
 import { CategoryPieChart } from '@/components/category-pie-chart';
+import { FinancialTrendChart } from '@/components/financial-trend-chart';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -282,6 +283,9 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
             </span>
           </div>
         </div>
+
+        {/* ─── Cumulative Balance Trend Chart (with Zoom) ─── */}
+        <FinancialTrendChart transactions={transactions} date={date} />
 
         {/* ─── Category Pie Charts ─── */}
         <div className="space-y-4">
