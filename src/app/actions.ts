@@ -25,8 +25,20 @@ import {
   createUser,
   getAccounts,
   getDebts,
+  getAllTransactions,
+  getScheduledPayments,
 } from '@/lib/notion';
-import { transformAccountData, transformDebtData } from '@/lib/utils';
+import {
+  transformAccountData,
+  transformDebtData,
+  transformTransactionData,
+  transformScheduledPaymentsData,
+} from '@/lib/utils';
+import {
+  buildReportData,
+  generateReportMarkdown,
+  type ReportConfig,
+} from '@/lib/reports-engine';
 import { createSessionToken } from '@/lib/session';
 import { z } from 'zod';
 import { format } from 'date-fns';
@@ -1010,5 +1022,75 @@ export async function updateWishlistItemAction(values: unknown) {
   } catch (error) {
     console.error('Failed to update wishlist item in Notion:', error);
     return { error: 'Failed to update wishlist item.' };
+  }
+}
+
+const reportConfigSchema = z.object({
+  period: z.enum(['current_month', 'previous_month', 'last_3_months', 'all']),
+  categories: z.array(z.string()).optional(),
+  template: z.enum(['executive', 'budget_vs_real', 'category_breakdown', 'ai_health']),
+});
+
+let reportDataCache: {
+  timestamp: number;
+  data: {
+    allTransactions: any[];
+    accounts: any[];
+    debts: any[];
+    scheduledPayments: any[];
+  };
+} | null = null;
+
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutos de caché en servidor
+
+async function getCachedFinancialRawData() {
+  const now = Date.now();
+  if (reportDataCache && now - reportDataCache.timestamp < CACHE_TTL_MS) {
+    return reportDataCache.data;
+  }
+
+  const [rawTx, rawAccounts, rawDebts, rawScheduled] = await Promise.all([
+    getAllTransactions(
+      process.env.NOTION_TRANSACTIONS_DB!,
+      process.env.NOTION_INCOME_DB!
+    ),
+    getAccounts(process.env.NOTION_ACCOUNTS_DB!),
+    getDebts(process.env.NOTION_DEBTS_DB!),
+    getScheduledPayments(process.env.NOTION_BUDGET_DB!),
+  ]);
+
+  const data = {
+    allTransactions: transformTransactionData(rawTx),
+    accounts: transformAccountData(rawAccounts),
+    debts: transformDebtData(rawDebts),
+    scheduledPayments: transformScheduledPaymentsData(rawScheduled),
+  };
+
+  reportDataCache = { timestamp: now, data };
+  return data;
+}
+
+export async function generateReportAction(config: unknown) {
+  await requireAuth();
+  const parsed = reportConfigSchema.safeParse(config);
+  if (!parsed.success) {
+    return { error: 'Parámetros de configuración inválidos.' };
+  }
+
+  try {
+    const rawData = await getCachedFinancialRawData();
+    const reportData = buildReportData(
+      rawData.allTransactions,
+      rawData.accounts,
+      rawData.debts,
+      rawData.scheduledPayments,
+      parsed.data as ReportConfig
+    );
+    const markdown = generateReportMarkdown(reportData);
+
+    return { success: true, reportData, markdown };
+  } catch (error) {
+    console.error('Failed to generate financial report:', error);
+    return { error: 'Ocurrió un error al generar el informe financiero.' };
   }
 }

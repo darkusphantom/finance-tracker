@@ -15,6 +15,7 @@ import {
   BotMessageSquare,
   ShieldCheck,
   CircleDollarSign,
+  FileText,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -26,6 +27,7 @@ export function MainNav() {
     { href: '/debts', label: 'Debts', icon: PiggyBank },
     { href: '/transactions', label: 'Transactions', icon: ReceiptText },
     { href: '/budget', label: 'Budget', icon: CalendarCheck },
+    { href: '/reports', label: 'Reports', icon: FileText },
     { href: '/calculator', label: 'Calculator', icon: Calculator },
     { href: '/binance', label: 'Binance', icon: CircleDollarSign },
     { href: '/chat', label: 'AI Advisor', icon: BotMessageSquare },
@@ -37,7 +39,6 @@ export function MainNav() {
       {menuItems.map(item => (
         <SidebarMenuItem key={item.label}>
           <SidebarMenuButton
-            href={item.href}
             isActive={pathname === item.href}
             asChild
           >
