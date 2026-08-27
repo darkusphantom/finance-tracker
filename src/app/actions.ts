@@ -25,8 +25,20 @@ import {
   createUser,
   getAccounts,
   getDebts,
+  getAllTransactions,
+  getScheduledPayments,
 } from '@/lib/notion';
-import { transformAccountData, transformDebtData } from '@/lib/utils';
+import {
+  transformAccountData,
+  transformDebtData,
+  transformTransactionData,
+  transformScheduledPaymentsData,
+} from '@/lib/utils';
+import {
+  buildReportData,
+  generateReportMarkdown,
+  type ReportConfig,
+} from '@/lib/reports-engine';
 import { createSessionToken } from '@/lib/session';
 import { z } from 'zod';
 import { format } from 'date-fns';
@@ -283,6 +295,10 @@ export async function addTransactionAction(values: unknown) {
       Month: { relation: [{ id: monthPageId }] },
     };
 
+    if (accountId) {
+      notionProperties['Account'] = { relation: [{ id: accountId }] };
+    }
+
     if (currency) {
       notionProperties['Currency'] = { select: { name: currency } };
     }
@@ -529,14 +545,88 @@ export async function updateTransactionAction(values: unknown) {
   }
 }
 
-export async function deleteTransactionAction(id: string) {
+export async function deleteTransactionAction(id: string, type?: 'income' | 'expense') {
   await requireAuth();
   try {
+    const rawTransaction = (await getPage(id)) as any;
+    const props = rawTransaction.properties;
+    
+    const amount = props.Amount?.number || 0;
+    const commission = props.Comission?.number || 0;
+    const accountId = props.Account?.relation?.[0]?.id || null;
+
+    if (accountId) {
+      const rawAccount = await getPage(accountId);
+      const accountData = transformAccountData([rawAccount])[0];
+      const actualBalance = accountData?.balance ?? 0;
+
+      const totalDeduction = amount + commission;
+      
+      let txType = type;
+      if (!txType) {
+         const dbId = rawTransaction.parent?.database_id?.replace(/-/g, '');
+         const incomeDbId = process.env.NOTION_INCOME_DB?.replace(/-/g, '');
+         txType = (dbId === incomeDbId) ? 'income' : 'expense';
+      }
+
+      // Revert the transaction effect:
+      // If it was income, subtract it from the balance.
+      // If it was expense, add the total deduction back to the balance.
+      const newBalance = txType === 'income' 
+        ? actualBalance - amount 
+        : actualBalance + totalDeduction;
+
+      await updatePage(accountId, {
+        'Balance Amount': { number: newBalance },
+      });
+    }
+
     await deletePage(id);
     return { success: true };
   } catch (error) {
     console.error('Failed to delete transaction in Notion:', error);
     return { error: 'Failed to delete transaction.' };
+  }
+}
+
+export async function deleteTransferAction(id: string) {
+  await requireAuth();
+  try {
+    const rawTransfer = (await getPage(id)) as any;
+    const props = rawTransfer.properties;
+
+    const fromAccountId = props['From Account']?.relation?.[0]?.id || null;
+    const toAccountId = props['To Account']?.relation?.[0]?.id || null;
+    const sentAmount = props['Sent Amount']?.number || 0;
+    const receivedAmount = props['Received Amount']?.number || 0;
+
+    // Revert From Account: Add sentAmount back
+    if (fromAccountId) {
+      const rawFromAccount = await getPage(fromAccountId);
+      const fromAccountData = transformAccountData([rawFromAccount])[0];
+      const actualFromBalance = fromAccountData?.balance ?? 0;
+
+      await updatePage(fromAccountId, {
+        'Balance Amount': { number: actualFromBalance + sentAmount },
+      });
+    }
+
+    // Revert To Account: Subtract receivedAmount
+    if (toAccountId) {
+      const rawToAccount = await getPage(toAccountId);
+      const toAccountData = transformAccountData([rawToAccount])[0];
+      const actualToBalance = toAccountData?.balance ?? 0;
+
+      await updatePage(toAccountId, {
+        'Balance Amount': { number: actualToBalance - receivedAmount },
+      });
+    }
+
+    await deletePage(id);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to delete transfer in Notion:', error);
+    return { error: 'Failed to delete transfer.' };
   }
 }
 
@@ -932,5 +1022,75 @@ export async function updateWishlistItemAction(values: unknown) {
   } catch (error) {
     console.error('Failed to update wishlist item in Notion:', error);
     return { error: 'Failed to update wishlist item.' };
+  }
+}
+
+const reportConfigSchema = z.object({
+  period: z.enum(['current_month', 'previous_month', 'last_3_months', 'all']),
+  categories: z.array(z.string()).optional(),
+  template: z.enum(['executive', 'budget_vs_real', 'category_breakdown', 'ai_health']),
+});
+
+let reportDataCache: {
+  timestamp: number;
+  data: {
+    allTransactions: any[];
+    accounts: any[];
+    debts: any[];
+    scheduledPayments: any[];
+  };
+} | null = null;
+
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutos de caché en servidor
+
+async function getCachedFinancialRawData() {
+  const now = Date.now();
+  if (reportDataCache && now - reportDataCache.timestamp < CACHE_TTL_MS) {
+    return reportDataCache.data;
+  }
+
+  const [rawTx, rawAccounts, rawDebts, rawScheduled] = await Promise.all([
+    getAllTransactions(
+      process.env.NOTION_TRANSACTIONS_DB!,
+      process.env.NOTION_INCOME_DB!
+    ),
+    getAccounts(process.env.NOTION_ACCOUNTS_DB!),
+    getDebts(process.env.NOTION_DEBTS_DB!),
+    getScheduledPayments(process.env.NOTION_BUDGET_DB!),
+  ]);
+
+  const data = {
+    allTransactions: transformTransactionData(rawTx),
+    accounts: transformAccountData(rawAccounts),
+    debts: transformDebtData(rawDebts),
+    scheduledPayments: transformScheduledPaymentsData(rawScheduled),
+  };
+
+  reportDataCache = { timestamp: now, data };
+  return data;
+}
+
+export async function generateReportAction(config: unknown) {
+  await requireAuth();
+  const parsed = reportConfigSchema.safeParse(config);
+  if (!parsed.success) {
+    return { error: 'Parámetros de configuración inválidos.' };
+  }
+
+  try {
+    const rawData = await getCachedFinancialRawData();
+    const reportData = buildReportData(
+      rawData.allTransactions,
+      rawData.accounts,
+      rawData.debts,
+      rawData.scheduledPayments,
+      parsed.data as ReportConfig
+    );
+    const markdown = generateReportMarkdown(reportData);
+
+    return { success: true, reportData, markdown };
+  } catch (error) {
+    console.error('Failed to generate financial report:', error);
+    return { error: 'Ocurrió un error al generar el informe financiero.' };
   }
 }

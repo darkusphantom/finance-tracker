@@ -52,6 +52,7 @@ import { addAccountAction, updateAccountAction, deleteAccountAction } from '@/ap
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Separator } from './ui/separator';
+import Link from 'next/link';
 
 const accountTypes = ['Corriente', 'Ahorro', 'Fisico', 'Credit', 'Investment'];
 const currencies = ['USD', 'VES', 'USDT'];
@@ -385,11 +386,18 @@ export function AccountBalances({
     <Card>
       <CardHeader>
         <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center'>
-          <div>
-            <CardTitle>Account Balances</CardTitle>
-            <CardDescription>
-              A live look at your connected account balances.
-            </CardDescription>
+          <div className="w-full flex items-center justify-between gap-2 sm:gap-0">
+            <div>
+              <CardTitle>Account Balances</CardTitle>
+              <CardDescription>
+                A live look at your connected account balances.
+              </CardDescription>
+            </div>
+            {!isEditable && (
+              <Button asChild variant="outline" className="w-full md:hidden max-w-[150px]">
+                <Link href="/accounts">Ir a Cuentas</Link>
+              </Button>
+            )}
           </div>
           {isEditable && (
             <Button onClick={handleAddNewAccount} disabled={isAdding} className="mt-4 sm:mt-0">
@@ -454,14 +462,16 @@ export function AccountBalances({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>
-                  <Button variant="ghost" onClick={() => handleSort('isActive')} disabled={!showPaused}>
-                    Paused
-                    {showPaused && (
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    )}
-                  </Button>
-                </TableHead>
+                {isEditable && (
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('isActive')} disabled={!showPaused}>
+                      Paused
+                      {showPaused && (
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      )}
+                    </Button>
+                  </TableHead>
+                )}
                 <TableHead>
                   <Button variant="ghost" onClick={() => handleSort('name')}>
                     Account
@@ -496,12 +506,14 @@ export function AccountBalances({
                 const displayCurrency = account.currency === 'USDT' ? 'USD' : account.currency;
                 return (
                   <TableRow key={account.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={!account.isActive}
-                        disabled
-                      />
-                    </TableCell>
+                    {isEditable && (
+                      <TableCell>
+                        <Checkbox
+                          checked={!account.isActive}
+                          disabled
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <Icon className="w-4 h-4 text-muted-foreground shrink-0" />

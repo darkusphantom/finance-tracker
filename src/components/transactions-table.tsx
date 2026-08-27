@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   updateTransactionAction,
   deleteTransactionAction,
+  deleteTransferAction,
 } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import {
@@ -419,15 +420,21 @@ export function TransactionsTable({
 
   const deleteRow = async (id: string) => {
     const original = transactions;
+    const target = transactions.find(t => t.id === id);
     setTransactions(prev => prev.filter(t => t.id !== id));
 
-    const result = await deleteTransactionAction(id);
+    let result = null;
+    if (target?.type === 'Transferencia' || target?.type === 'Cambio Divisa') {
+      result = await deleteTransferAction(id);
+    } else {
+      result = await deleteTransactionAction(id, target?.type);
+    }
 
     if (result?.error) {
-      toast({ title: 'Delete Failed', description: result.error, variant: 'destructive' });
+      toast({ title: 'Revert Failed', description: result.error, variant: 'destructive' });
       setTransactions(original);
     } else {
-      toast({ title: 'Transaction Deleted', description: 'The transaction has been removed.' });
+      toast({ title: 'Transaction Reverted', description: 'Transaction removed and amount returned to the account.' });
       router.refresh();
     }
   };
@@ -526,9 +533,8 @@ export function TransactionsTable({
 
                       {/* Amount */}
                       <TableCell
-                        className={`font-mono text-sm font-semibold whitespace-nowrap ${
-                          transaction.type === 'income' ? 'text-primary' : 'text-destructive'
-                        }`}
+                        className={`font-mono text-sm font-semibold whitespace-nowrap ${transaction.type === 'income' ? 'text-primary' : 'text-destructive'
+                          }`}
                       >
                         {transaction.type === 'income' ? '+' : '-'}
                         {Number(transaction.amount).toLocaleString()}
@@ -576,7 +582,7 @@ export function TransactionsTable({
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete this transaction.
+                                  This action cannot be undone. This will permanently delete the transaction and return the original amount (including commissions) to the source account.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
