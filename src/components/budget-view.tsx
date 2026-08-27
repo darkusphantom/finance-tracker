@@ -29,6 +29,7 @@ import {
   parseISO,
   setDate as setDateOfMonth,
 } from 'date-fns';
+import { CategoryPieChart } from '@/components/category-pie-chart';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -279,6 +280,27 @@ export function BudgetView({ transactions = [] }: { transactions: any[] }) {
               <span className="inline-block w-2.5 h-2.5 rounded-sm bg-destructive" />
               Expenses
             </span>
+          </div>
+        </div>
+
+        {/* ─── Category Pie Charts ─── */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Breakdown by category — {format(date, 'MMMM yyyy')} / {format(date, 'yyyy')}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CategoryPieChart
+              transactions={transactions}
+              type="expense"
+              currentMonth={date}
+              isReadOnly={false}
+            />
+            <CategoryPieChart
+              transactions={transactions}
+              type="income"
+              currentMonth={date}
+              isReadOnly={false}
+            />
           </div>
         </div>
 

@@ -12,6 +12,7 @@ import {
 } from '@/lib/utils';
 import { DashboardClientLayout } from '@/components/dashboard-client-layout';
 import { Wishlist } from '@/components/wishlist';
+import { CategoryPieChart } from '@/components/category-pie-chart';
 
 export const revalidate = 0;
 
@@ -42,6 +43,21 @@ export default async function DashboardPage() {
       <main className="space-y-6">
         <MonthlyOverview monthlySavings={monthlySavings} />
         <FinancialChart transactions={transactions} />
+
+        {/* Category Pie Charts — read-only */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CategoryPieChart
+            transactions={transactions}
+            type="expense"
+            isReadOnly={true}
+          />
+          <CategoryPieChart
+            transactions={transactions}
+            type="income"
+            isReadOnly={true}
+          />
+        </div>
+
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2">
             <AccountBalances isEditable={false} initialAccounts={accounts} />
