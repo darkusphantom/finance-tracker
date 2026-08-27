@@ -21,6 +21,7 @@ import {
 import { TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { calculateFinancialSummary } from '@/lib/utils';
+import Link from 'next/link';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -29,7 +30,7 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function FinancialChart({ transactions }: { transactions: any[] }) {
+export function FinancialChart({ transactions, showLink = false }: { transactions: any[], showLink?: boolean }) {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   const summary = useMemo(
@@ -51,11 +52,18 @@ export function FinancialChart({ transactions }: { transactions: any[] }) {
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
-          <div>
-            <CardTitle>Financial Overview</CardTitle>
-            <CardDescription>
-              Your financial performance for the selected year.
-            </CardDescription>
+          <div className="w-full flex items-center justify-between gap-2 sm:gap-0">
+            <div>
+              <CardTitle>Financial Overview</CardTitle>
+              <CardDescription>
+                Your financial performance for the selected year.
+              </CardDescription>
+            </div>
+            {showLink && (
+              <Button asChild variant="outline" className="w-full md:hidden max-w-[150px]">
+                <Link href="/transactions">Ir a Transacciones</Link>
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2 self-end sm:self-auto">
             <Button variant="outline" size="icon" onClick={handlePreviousYear}>

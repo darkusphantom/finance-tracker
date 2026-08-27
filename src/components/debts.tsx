@@ -44,6 +44,7 @@ import { addDebtAction, updateDebtAction } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil } from 'lucide-react';
+import Link from 'next/link';
 
 function EditDebtModal({
   debt,
@@ -252,11 +253,18 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
   return (
     <Card>
       <CardHeader className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0'>
-        <div>
-          <CardTitle>Debts & Debtors</CardTitle>
-          <CardDescription>
-            Track your outstanding debts and what others owe you.
-          </CardDescription>
+        <div className="w-full flex items-center justify-between gap-2 sm:gap-0">
+          <div>
+            <CardTitle>Debts & Debtors</CardTitle>
+            <CardDescription>
+              Track your outstanding debts and what others owe you.
+            </CardDescription>
+          </div>
+          {!isEditable && (
+            <Button asChild variant="outline" className="w-full md:hidden max-w-[150px]">
+              <Link href="/debts">Ir a Deudas</Link>
+            </Button>
+          )}
         </div>
         {isEditable && (
           <Button onClick={handleAddNewDebt} disabled={isAdding}>
@@ -300,76 +308,82 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
           </div>
         )}
         <div className="space-y-6">
-          {paginatedDebts.map((debt) => (
-            <div key={debt.id} className="border p-4 rounded-lg bg-card">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex flex-col gap-1 flex-1 mr-4">
-                  <span className="font-medium text-lg">{debt.name}</span>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant={debt.type === 'Debt' ? 'destructive' : 'secondary'}>
-                      {debt.type}
-                    </Badge>
-                    <Badge variant="outline">
-                      {debt.estadoDeuda}
-                    </Badge>
-                    {debt.status === 'Listo' && (
-                      <Badge className="bg-green-500 hover:bg-green-600">Listo</Badge>
-                    )}
-                    {debt.date && <span className="text-xs text-muted-foreground ml-1">{debt.date}</span>}
-                  </div>
-                  {debt.reason && <span className="text-sm text-muted-foreground mt-1">📝 {debt.reason}</span>}
-                </div>
-
-                {isEditable && (
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => setEditingDebt(debt)}>
-                      <Pencil className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete this item.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteRow(debt.id)}>
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col sm:flex-row justify-between sm:items-baseline text-sm mt-4 mb-2 gap-1 sm:gap-0">
-                <div className="text-muted-foreground">
-                  <span className="font-mono font-medium">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.paid)}
-                  </span>
-                  {' '}of{' '}
-                  <span className="font-mono">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.total)}
-                  </span>
-                </div>
-                <div className="text-left sm:text-right">
-                  <span className="text-xs text-muted-foreground mr-2">Balance:</span>
-                  <span className={`font-mono font-bold ${debt.saldoPendiente > 0 ? 'text-destructive' : 'text-green-500'}`}>
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.saldoPendiente)}
-                  </span>
-                </div>
-              </div>
-              <Progress value={debt.total > 0 ? (debt.paid / debt.total) * 100 : 0} className="h-2" />
+          {paginatedDebts.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              No hay deudas ni deudores activos.
             </div>
-          ))}
+          ) : (
+            paginatedDebts.map((debt) => (
+              <div key={debt.id} className="border p-4 rounded-lg bg-card">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex flex-col gap-1 flex-1 mr-4">
+                    <span className="font-medium text-lg">{debt.name}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={debt.type === 'Debt' ? 'destructive' : 'secondary'}>
+                        {debt.type}
+                      </Badge>
+                      <Badge variant="outline">
+                        {debt.estadoDeuda}
+                      </Badge>
+                      {debt.status === 'Listo' && (
+                        <Badge className="bg-green-500 hover:bg-green-600">Listo</Badge>
+                      )}
+                      {debt.date && <span className="text-xs text-muted-foreground ml-1">{debt.date}</span>}
+                    </div>
+                    {debt.reason && <span className="text-sm text-muted-foreground mt-1">📝 {debt.reason}</span>}
+                  </div>
+
+                  {isEditable && (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setEditingDebt(debt)}>
+                        <Pencil className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete this item.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteRow(debt.id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-between sm:items-baseline text-sm mt-4 mb-2 gap-1 sm:gap-0">
+                  <div className="text-muted-foreground">
+                    <span className="font-mono font-medium">
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.paid)}
+                    </span>
+                    {' '}of{' '}
+                    <span className="font-mono">
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.total)}
+                    </span>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <span className="text-xs text-muted-foreground mr-2">Balance:</span>
+                    <span className={`font-mono font-bold ${debt.saldoPendiente > 0 ? 'text-destructive' : 'text-green-500'}`}>
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.saldoPendiente)}
+                    </span>
+                  </div>
+                </div>
+                <Progress value={debt.total > 0 ? (debt.paid / debt.total) * 100 : 0} className="h-2" />
+              </div>
+            ))
+          )}
         </div>
         {isEditable && totalPages > 1 && (
           <div className="flex justify-between items-center mt-6">

@@ -184,57 +184,59 @@ export const transformMonthlySavingsData = (notionPages: any[]): any[] => {
   });
 };
 
+/**
+ * Calcula el resumen financiero anual y el desglose mensual para los charts.
+ *
+ * @param transactions - Array completo de transacciones transformadas.
+ * @param year - Año a calcular (e.g. 2026).
+ * @returns Totales anuales y datos mensuales para el BarChart.
+ *
+ * @complexity
+ * - ANTERIOR: O(n × 13) — 1 filter de año + 12 filters de mes anidados en map.
+ * - ACTUAL:   O(n)       — Una sola pasada con Map; parseISO ejecutado 1 vez por transacción.
+ */
 export const calculateFinancialSummary = (transactions: any[], year: number) => {
-  // Use parseISO so 'YYYY-MM-DD' is treated as local midnight, not UTC midnight.
-  // new Date('2026-01-01') is UTC midnight → in UTC-4 that's Dec 31 at 20:00 local,
-  // which breaks month/year grouping. parseISO('2026-01-01') = Jan 1 local midnight.
-  const yearTransactions = transactions.filter(t => {
+  /**
+   * Agrupación en una sola pasada.
+   * byMonth[0..11] → { income, expenses }
+   */
+  const byMonth = new Map<number, { income: number; expenses: number }>();
+  let annualTotalIncome = 0;
+  let annualTotalExpenses = 0;
+
+  for (const t of transactions) {
+    // parseISO ejecutado UNA sola vez por transacción (no n×13 como antes)
     const date = parseISO(t.date);
-    return getYear(date) === year;
-  });
+    if (getYear(date) !== year) continue;
 
-  // Prefer realUsdAmount (Notion formula) so amounts are always in USD.
-  // Fall back to raw amount only for records without a formula result (USD transactions).
-  const usd = (t: any) => t.realUsdAmount ?? t.amount;
+    const month = getMonth(date); // 0-11
+    // Prefer realUsdAmount (Notion formula); fallback to raw amount for USD records
+    const usd = t.realUsdAmount ?? t.amount;
 
-  const annualTotalIncome = yearTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + usd(t), 0);
+    if (!byMonth.has(month)) {
+      byMonth.set(month, { income: 0, expenses: 0 });
+    }
+    const entry = byMonth.get(month)!;
 
-  const annualTotalExpenses = Math.abs(
-    yearTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + usd(t), 0)
-  );
+    if (t.type === 'income') {
+      entry.income += usd;
+      annualTotalIncome += usd;
+    } else {
+      entry.expenses += Math.abs(usd);
+      annualTotalExpenses += Math.abs(usd);
+    }
+  }
 
   const annualNet = annualTotalIncome - annualTotalExpenses;
 
-  // Monthly breakdown for the bar chart (only months with data)
-  const months = Array.from({ length: 12 }, (_, i) => i); // 0-11
-
-  const annualChartData = months.map(month => {
-    const monthTransactions = yearTransactions.filter(t => {
-      const date = parseISO(t.date);
-      return getMonth(date) === month;
-    });
-
-    const income = monthTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + usd(t), 0);
-
-    const expenses = Math.abs(
-      monthTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + usd(t), 0)
-    );
-
-    const net = income - expenses;
-
+  /** Genera los 12 puntos del chart; meses sin datos tendrán income/expenses = 0. */
+  const annualChartData = Array.from({ length: 12 }, (_, month) => {
+    const data = byMonth.get(month) ?? { income: 0, expenses: 0 };
     return {
       month: format(new Date(year, month), 'MMM'),
-      income,
-      expenses,
-      net,
+      income: data.income,
+      expenses: data.expenses,
+      net: data.income - data.expenses,
     };
   });
 

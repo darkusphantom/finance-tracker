@@ -6,9 +6,20 @@ import { getProperty } from './utils';
 
 dotenv.config();
 
-const notion = new Client({
-  auth: process.env.NOTION_TOKEN,
-});
+/**
+ * Singleton global del cliente Notion.
+ * Evita re-instanciar el cliente en cada hot-reload de Turbopack,
+ * previniendo el MaxListenersExceededWarning en desarrollo.
+ * @see https://www.notionhq.com/client
+ */
+declare global {
+  // eslint-disable-next-line no-var
+  var _notionClient: Client | undefined;
+}
+
+const notion: Client =
+  global._notionClient ??
+  (global._notionClient = new Client({ auth: process.env.NOTION_TOKEN }));
 
 const isEmail = (str: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
 
@@ -207,14 +218,18 @@ export const getAllTransactions = async (expenseDbId: string, incomeDbId: string
     ...incomeTransactions.map(t => ({ ...t, type: 'income' })),
   ];
   
-  // Sort by date, most recent first
-  allTransactions.sort((a, b) => {
-    const dateA = new Date((a as any).properties.Date?.date?.start || 0);
-    const dateB = new Date((b as any).properties.Date?.date?.start || 0);
-    return dateB.getTime() - dateA.getTime();
-  });
-
-  return allTransactions;
+  /**
+   * Schwartzian Transform: extrae el timestamp una sola vez por elemento
+   * antes del sort, evitando instanciar Date() en cada comparación.
+   * Complejidad: O(n) para decorar + O(n log n) sort + O(n) para desdecorar.
+   */
+  return allTransactions
+    .map(t => ({
+      t,
+      ts: new Date((t as any).properties.Date?.date?.start || 0).getTime(),
+    }))
+    .sort((a, b) => b.ts - a.ts)
+    .map(({ t }) => t);
 };
 
 export const addPageToDb = async (databaseId: string, properties: any) => {

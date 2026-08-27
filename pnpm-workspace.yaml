@@ -4,3 +4,9 @@ allowBuilds:
   esbuild: false
   protobufjs: false
   sharp: false
+
+# Fix #2: Fuerza una sola instancia de React en todo el árbol de dependencias.
+# Previene "Invalid hook call" causado por firebase/genkit traer copias propias de React.
+overrides:
+  react: "^18.3.1"
+  react-dom: "^18.3.1"

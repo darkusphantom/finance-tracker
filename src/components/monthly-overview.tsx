@@ -7,6 +7,8 @@ import {
 } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 type MonthData = {
   id: string;
@@ -78,15 +80,27 @@ export function MonthlyOverview({
         <CardHeader>
           <CardTitle>Monthly Overview</CardTitle>
           <CardDescription>No monthly data available yet.</CardDescription>
+          <Button asChild variant="outline" className="w-full md:hidden">
+            <Link href="/budget">Ir a Presupuesto</Link>
+          </Button>
         </CardHeader>
       </Card>
     );
   }
 
-  // ── Annual totals: sum of all filtered months ────────────────────────────
-  const annualIncome = filtered.reduce((s, m) => s + m.totalIncome, 0);
-  const annualExpenses = filtered.reduce((s, m) => s + m.totalExpenses, 0);
-  const annualNet = filtered.reduce((s, m) => s + m.net, 0);
+  /**
+   * Totales anuales en una sola pasada O(n).
+   * ANTERIOR: 3 reduces separados → O(3n).
+   * ACTUAL:   1 reduce acumulador  → O(n).
+   */
+  const { annualIncome, annualExpenses, annualNet } = filtered.reduce(
+    (acc, m) => ({
+      annualIncome: acc.annualIncome + m.totalIncome,
+      annualExpenses: acc.annualExpenses + m.totalExpenses,
+      annualNet: acc.annualNet + m.net,
+    }),
+    { annualIncome: 0, annualExpenses: 0, annualNet: 0 }
+  );
 
   // Most recent month is first (sorted descending by Month Number)
   const current = filtered[0];
@@ -98,18 +112,24 @@ export function MonthlyOverview({
     <Card>
       <CardHeader>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-          <div>
-            <CardTitle>Monthly Overview</CardTitle>
-            <CardDescription>
-              Real USD totals for <span className="font-medium text-foreground">{currentYear}</span>
-            </CardDescription>
+          <div className="w-full flex items-center justify-between gap-2 sm:gap-0">
+            <div>
+              <CardTitle>Monthly Overview</CardTitle>
+              <CardDescription>
+                Real USD totals for <span className="font-medium text-foreground">{currentYear}</span>
+              </CardDescription>
+              {netTrend !== null && (
+                <Badge variant={netTrend >= 0 ? 'default' : 'destructive'} className="text-xs">
+                  {netTrend >= 0 ? '▲' : '▼'} {netTrend >= 0 ? '+' : ''}
+                  ${netTrend.toFixed(2)} vs {previous!.name}
+                </Badge>
+              )}
+            </div>
+            <Button asChild variant="outline" className="md:hidden max-w-[150px]">
+              <Link href="/budget">Ir a Presupuesto</Link>
+            </Button>
           </div>
-          {netTrend !== null && (
-            <Badge variant={netTrend >= 0 ? 'default' : 'destructive'} className="text-xs">
-              {netTrend >= 0 ? '▲' : '▼'} {netTrend >= 0 ? '+' : ''}
-              ${netTrend.toFixed(2)} vs {previous!.name}
-            </Badge>
-          )}
+
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
