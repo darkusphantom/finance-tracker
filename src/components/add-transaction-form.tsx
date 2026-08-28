@@ -261,15 +261,7 @@ export function AddTransactionForm({
     });
 
     if (result.success) {
-      const commissionCharged = 'commission' in result ? result.commission : 0;
-      toast({
-        title: 'Transaction Added',
-        description: selectedDebt
-          ? `Transaction added and debt "${selectedDebt.name}" updated.`
-          : commissionCharged && commissionCharged > 0
-            ? `Transacción guardada. Comisión bancaria aplicada: ${commissionCharged.toLocaleString('es-VE', { minimumFractionDigits: 2 })} VES`
-            : `Your transaction has been added.`,
-      });
+      const commissionCharged = 'commission' in result ? (result.commission as number) : 0;
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }

@@ -314,7 +314,7 @@ export async function addTransactionAction(values: unknown) {
       notionProperties['Comission'] = { number: commission };
     }
 
-    await addPageToDb(databaseId, notionProperties);
+    const newPage = await addPageToDb(databaseId, notionProperties);
 
     // Update account balance if an account was selected.
     // Fetch consistent page details from Notion to prevent stale balance overwrites.
@@ -347,7 +347,7 @@ export async function addTransactionAction(values: unknown) {
       });
     }
 
-    return { success: true, commission };
+    return { success: true, commission, id: newPage.id };
   } catch (error) {
     console.error('Failed to add transaction to Notion:', error);
     return { error: 'Failed to save transaction.' };
