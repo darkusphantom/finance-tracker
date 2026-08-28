@@ -74,7 +74,18 @@ function EditDebtModal({
     setIsSaving(true);
     const fieldsToUpdate: Array<{ field: string; value: any }> = [];
 
-    const tracked = ['name', 'type', 'paid', 'total', 'status', 'reason', 'date'];
+    const tracked = [
+      'name',
+      'type',
+      'paid',
+      'total',
+      'status',
+      'reason',
+      'date',
+      'weeklyFee',
+      'commissionStartDate',
+      'freezeDate',
+    ];
     for (const field of tracked) {
       if (form[field] !== debt[field]) {
         fieldsToUpdate.push({ field, value: form[field] });
@@ -102,13 +113,18 @@ function EditDebtModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Debt / Debtor</DialogTitle>
           <DialogDescription>Update details about this item.</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+          <div className="grid gap-1.5">
+            <Label>Date</Label>
+            <Input type="date" value={form.date || ''} onChange={e => handleField('date', e.target.value)} />
+          </div>
+
           <div className="grid gap-1.5">
             <Label>Title</Label>
             <Input value={form.name || ''} onChange={e => handleField('name', e.target.value)} />
@@ -138,23 +154,79 @@ function EditDebtModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-1.5">
-              <Label>Debt Amount</Label>
-              <Input type="number" value={form.total} onChange={e => handleField('total', parseFloat(e.target.value) || 0)} />
+              <Label>Debt Amount ($)</Label>
+              <Input type="number" value={form.total ?? ''} onChange={e => handleField('total', parseFloat(e.target.value) || 0)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>Amount Paid</Label>
-              <Input type="number" value={form.paid} onChange={e => handleField('paid', parseFloat(e.target.value) || 0)} />
+              <Label>Amount Paid ($)</Label>
+              <Input type="number" value={form.paid ?? ''} onChange={e => handleField('paid', parseFloat(e.target.value) || 0)} />
             </div>
           </div>
 
-          <div className="grid gap-1.5">
+          {form.type === 'Debtor' && (
+            <>
+              <div className="grid grid-cols-2 gap-4 border-t pt-3">
+                <div className="grid gap-1.5">
+                  <Label>Weekly Fee ($)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    placeholder="0.00"
+                    value={form.weeklyFee ?? ''}
+                    onChange={e => handleField('weeklyFee', parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Commission Start Date</Label>
+                  <Input
+                    type="date"
+                    value={form.commissionStartDate || ''}
+                    onChange={e => handleField('commissionStartDate', e.target.value || null)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-1.5 border-t pt-3">
+                <div className="flex justify-between items-center">
+                  <Label>Freeze Date (Cierre Comisiones)</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => handleField('freezeDate', new Date().toISOString().split('T')[0])}
+                    >
+                      Congelar Hoy
+                    </Button>
+                    {form.freezeDate && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground"
+                        onClick={() => handleField('freezeDate', null)}
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <Input
+                  type="date"
+                  value={form.freezeDate || ''}
+                  onChange={e => handleField('freezeDate', e.target.value || null)}
+                />
+                <span className="text-xs text-muted-foreground">
+                  Fija la fecha límite para evitar que se sigan sumando comisiones semanalmente (ej. por olvido de registro o acuerdo).
+                </span>
+              </div>
+            </>
+          )}
+
+          <div className="grid gap-1.5 border-t pt-3">
             <Label>Reason (Optional)</Label>
             <Input value={form.reason || ''} onChange={e => handleField('reason', e.target.value)} />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label>Date</Label>
-            <Input type="date" value={form.date || ''} onChange={e => handleField('date', e.target.value)} />
           </div>
         </div>
 
@@ -328,9 +400,24 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
                       {debt.status === 'Listo' && (
                         <Badge className="bg-green-500 hover:bg-green-600">Listo</Badge>
                       )}
+                      {debt.type === 'Debtor' && debt.weeklyFee > 0 && (
+                        <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400">
+                          ⏳ {debt.weeksElapsed} {debt.weeksElapsed === 1 ? 'semana' : 'semanas'} (+{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.accruedCommission)})
+                        </Badge>
+                      )}
+                      {debt.type === 'Debtor' && debt.isFrozen && debt.weeklyFee > 0 && (
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400">
+                          🧊 Congelado{debt.freezeDate ? `: ${debt.freezeDate}` : ''}
+                        </Badge>
+                      )}
                       {debt.date && <span className="text-xs text-muted-foreground ml-1">{debt.date}</span>}
                     </div>
                     {debt.reason && <span className="text-sm text-muted-foreground mt-1">📝 {debt.reason}</span>}
+                    {debt.type === 'Debtor' && debt.weeklyFee > 0 && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+                        ⚡ Comisión habitual: ${debt.weeklyFee.toFixed(2)} / semana
+                      </span>
+                    )}
                   </div>
 
                   {isEditable && (
@@ -364,14 +451,19 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
                 </div>
 
                 <div className="flex flex-col sm:flex-row justify-between sm:items-baseline text-sm mt-4 mb-2 gap-1 sm:gap-0">
-                  <div className="text-muted-foreground">
+                  <div className="text-muted-foreground flex flex-wrap items-baseline gap-1">
                     <span className="font-mono font-medium">
                       {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.paid)}
                     </span>
-                    {' '}of{' '}
-                    <span className="font-mono">
-                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.total)}
+                    {' '}de{' '}
+                    <span className="font-mono font-semibold text-foreground">
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.adjustedTotal || debt.total)}
                     </span>
+                    {debt.type === 'Debtor' && debt.accruedCommission > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        (Base: ${debt.total.toFixed(2)} + ${debt.accruedCommission.toFixed(2)} com.)
+                      </span>
+                    )}
                   </div>
                   <div className="text-left sm:text-right">
                     <span className="text-xs text-muted-foreground mr-2">Balance:</span>
@@ -380,7 +472,7 @@ export function Debts({ isEditable = true, initialDebts = [] }: { isEditable?: b
                     </span>
                   </div>
                 </div>
-                <Progress value={debt.total > 0 ? (debt.paid / debt.total) * 100 : 0} className="h-2" />
+                <Progress value={(debt.adjustedTotal || debt.total) > 0 ? (debt.paid / (debt.adjustedTotal || debt.total)) * 100 : 0} className="h-2" />
               </div>
             ))
           )}

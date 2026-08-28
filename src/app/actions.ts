@@ -770,6 +770,15 @@ export async function updateDebtAction(values: unknown) {
           Type: { select: { name: value === 'Debt' ? 'Deuda' : 'Deudor' } },
         };
         break;
+      case 'weeklyFee':
+        notionProperty = { 'Weekly Fee': { number: typeof value === 'number' ? value : parseFloat(value as string) || 0 } };
+        break;
+      case 'commissionStartDate':
+        notionProperty = { 'Commission Start Date': { date: value ? { start: value as string } : null } };
+        break;
+      case 'freezeDate':
+        notionProperty = { 'Freeze Date': { date: value ? { start: value as string } : null } };
+        break;
       default:
         return { error: 'Invalid field.' };
     }
