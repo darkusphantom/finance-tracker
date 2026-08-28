@@ -261,29 +261,6 @@ export function AccountBalances({
   }, [initialAccounts]);
 
 
-  const { totalBalanceUSD, totalBalanceVES } = useMemo(() => {
-    if (!officialRate) return { totalBalanceUSD: 0, totalBalanceVES: 0 };
-
-    const totalUSD = accounts.reduce((acc, account) => {
-      if (!account.isActive) return acc;
-      switch (account.currency) {
-        case 'USD':
-        case 'USDT':
-          return acc + account.balance;
-        case 'VES':
-          return acc + (account.balance / officialRate);
-        default:
-          return acc;
-      }
-    }, 0);
-
-    return {
-      totalBalanceUSD: totalUSD,
-      totalBalanceVES: totalUSD * officialRate,
-    }
-
-  }, [accounts, officialRate]);
-
   const handleSort = (key: string) => {
     if (!isEditable) return;
     setSort(prevSort => ({
@@ -320,6 +297,28 @@ export function AccountBalances({
       return 0;
     });
   }, [accounts, filter, sort, isEditable, showPaused, currencyFilter, typeFilter]);
+
+  const { totalBalanceUSD, totalBalanceVES } = useMemo(() => {
+    if (!officialRate) return { totalBalanceUSD: 0, totalBalanceVES: 0 };
+
+    const totalUSD = sortedAndFilteredAccounts.reduce((acc, account) => {
+      if (!account.isActive) return acc;
+      switch (account.currency) {
+        case 'USD':
+        case 'USDT':
+          return acc + account.balance;
+        case 'VES':
+          return acc + (account.balance / officialRate);
+        default:
+          return acc;
+      }
+    }, 0);
+
+    return {
+      totalBalanceUSD: totalUSD,
+      totalBalanceVES: totalUSD * officialRate,
+    };
+  }, [sortedAndFilteredAccounts, officialRate]);
 
   const paginatedAccounts = useMemo(() => {
     if (!isEditable) {
