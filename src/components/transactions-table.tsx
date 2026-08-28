@@ -571,24 +571,24 @@ export function TransactionsTable({
                             <Pencil className="w-4 h-4" />
                           </Button>
 
-                          {/* Delete */}
+                          {/* Delete / Undo */}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button variant="ghost" size="icon" title="Undo Transaction">
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogTitle>Undo Transaction</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete the transaction and return the original amount (including commissions) to the source account.
+                                  Are you sure you want to undo this transaction? The transaction will be removed and the original amount (including any bank commissions) will be returned to the account.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction onClick={() => deleteRow(transaction.id)}>
-                                  Delete
+                                  Undo Transaction
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

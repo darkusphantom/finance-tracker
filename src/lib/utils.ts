@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { format, getMonth, getYear, parseISO } from 'date-fns';
+import { calculateDebtCommissions } from '@/lib/debt-utils';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -55,21 +56,44 @@ export const transformDebtData = (notionPages: any[]): any[] => {
   return notionPages.map(page => {
     const props = (page as any).properties;
     const total = getProperty(props['Debt Amount']) || 0;
-    const status = getProperty(props.Status);
+    const status = getProperty(props.Status) || 'Pending';
     const type = getProperty(props.Type);
+    const normalizedType = type === 'Deuda' ? 'Debt' : 'Debtor';
     const paid = getProperty(props['Amount Paid']) || 0;
+    const date = getProperty(props.Date) || null;
+    const weeklyFee = getProperty(props['Weekly Fee']) || 0;
+    const commissionStartDate = getProperty(props['Commission Start Date']) || null;
+    const freezeDate = getProperty(props['Freeze Date']) || null;
+
+    const calc = calculateDebtCommissions({
+      total,
+      paid,
+      date,
+      weeklyFee,
+      commissionStartDate,
+      freezeDate,
+      status,
+      type: normalizedType,
+    });
 
     return {
       id: page.id,
       name: getProperty(props.Title) || 'N/A',
-      type: type === 'Deuda' ? 'Debt' : 'Debtor',
+      type: normalizedType,
       total: total,
       paid: paid,
-      status: status || 'Pending',
-      saldoPendiente: getProperty(props['⚖️ Saldo Pendiente']) || 0,
+      status: status,
+      saldoPendiente: calc.saldoPendiente,
       estadoDeuda: getProperty(props['Estado Deuda']) || '⚪ Sin datos',
       reason: getProperty(props.Reason) || '',
-      date: getProperty(props.Date) || null,
+      date: date,
+      weeklyFee: weeklyFee,
+      commissionStartDate: commissionStartDate,
+      freezeDate: freezeDate,
+      weeksElapsed: calc.weeksElapsed,
+      accruedCommission: calc.accruedCommission,
+      adjustedTotal: calc.adjustedTotal,
+      isFrozen: calc.isFrozen,
     };
   });
 };
