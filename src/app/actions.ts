@@ -550,7 +550,7 @@ export async function deleteTransactionAction(id: string, type?: 'income' | 'exp
   try {
     const rawTransaction = (await getPage(id)) as any;
     const props = rawTransaction.properties;
-    
+
     const amount = props.Amount?.number || 0;
     const commission = props.Comission?.number || 0;
     const accountId = props.Account?.relation?.[0]?.id || null;
@@ -561,19 +561,19 @@ export async function deleteTransactionAction(id: string, type?: 'income' | 'exp
       const actualBalance = accountData?.balance ?? 0;
 
       const totalDeduction = amount + commission;
-      
+
       let txType = type;
       if (!txType) {
-         const dbId = rawTransaction.parent?.database_id?.replace(/-/g, '');
-         const incomeDbId = process.env.NOTION_INCOME_DB?.replace(/-/g, '');
-         txType = (dbId === incomeDbId) ? 'income' : 'expense';
+        const dbId = rawTransaction.parent?.database_id?.replace(/-/g, '');
+        const incomeDbId = process.env.NOTION_INCOME_DB?.replace(/-/g, '');
+        txType = (dbId === incomeDbId) ? 'income' : 'expense';
       }
 
       // Revert the transaction effect:
       // If it was income, subtract it from the balance.
       // If it was expense, add the total deduction back to the balance.
-      const newBalance = txType === 'income' 
-        ? actualBalance - amount 
+      const newBalance = txType === 'income'
+        ? actualBalance - amount
         : actualBalance + totalDeduction;
 
       await updatePage(accountId, {
